@@ -3408,6 +3408,54 @@ setting.
 If the result backend is not `persistent <https://github.com/celery/celery/blob/main/celery/backends/base.py#L102>`_
 (the RPC backend, for example), this setting is ignored.
 
+.. setting:: worker_enable_global_rate_limits
+
+``worker_enable_global_rate_limits``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 5.6
+
+Default: False
+
+Master switch that enables the opt-in, Redis-backed global rate limiter.
+
+When :const:`False` (the default), task rate limiting is unchanged: each
+worker process enforces a task's rate limit independently, so the effective
+aggregate rate scales with the number of workers.
+
+When :const:`True`, a task's configured
+:attr:`Task.rate_limit <celery.app.task.Task.rate_limit>` is enforced as a
+single shared token bucket across the entire worker pool, coordinated through
+Redis, so aggregate throughput is bounded by the configured rate regardless of
+the worker count.
+
+The Redis endpoint is resolved from :setting:`global_rate_limit_url`, falling
+back to :setting:`result_backend` and then :setting:`broker_url`. If Redis is
+unreachable the limiter logs a warning and falls back to the per-worker limit,
+so task processing is never blocked.
+
+.. seealso::
+
+    :setting:`global_rate_limit_url`
+
+.. setting:: global_rate_limit_url
+
+``global_rate_limit_url``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 5.6
+
+Default: :const:`None`.
+
+Optional Redis URL used by the global rate limiter
+(:setting:`worker_enable_global_rate_limits`) to coordinate the shared token
+bucket. When unset, the limiter falls back to the configured
+:setting:`result_backend`, and then to :setting:`broker_url`.
+
+Only relevant when :setting:`worker_enable_global_rate_limits` is enabled. The
+limiter reuses Celery's existing redis-py client, so no additional dependency
+is required.
+
 .. _conf-concurrency:
 
 .. setting:: worker_concurrency
