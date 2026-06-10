@@ -337,6 +337,7 @@ NAMESPACES = Namespace(
         disable_rate_limits=Option(
             False, type='bool', old={'celery_disable_rate_limits'},
         ),
+        enable_global_rate_limits=Option(False, type='bool'),
         deduplicate_successful_tasks=Option(
             False, type='bool'
         ),
@@ -372,6 +373,9 @@ NAMESPACES = Namespace(
         timer_precision=Option(1.0, type='float'),
         detect_quorum_queues=Option(True, type='bool'),
     ),
+    **{'global': Namespace(
+        rate_limit_url=Option(None, type='string'),
+    )},
 )
 
 
