@@ -430,6 +430,41 @@
       justify-content: center;
     }
     .reveal .brand-lockup .brand-mark svg { width: 24px; height: 24px; color: #FFFFFF; }
+
+    /* ----- Accessibility: focus visibility, reduced motion, print ----- */
+    /* Visible keyboard focus indicator using the brand accent. */
+    .reveal a:focus-visible,
+    .reveal button:focus-visible,
+    .reveal .controls button:focus-visible,
+    .reveal .navigate-left:focus-visible,
+    .reveal .navigate-right:focus-visible,
+    .reveal .navigate-up:focus-visible,
+    .reveal .navigate-down:focus-visible {
+      outline: 3px solid var(--blitzy-accent-teal);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+    /* Honor users who prefer reduced motion. */
+    @media (prefers-reduced-motion: reduce) {
+      .reveal .slides section,
+      .reveal .progress span,
+      .reveal [data-lucide],
+      .reveal svg {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+    /* Speaker notes stay off the rendered slide (available in source / speaker
+       view), keeping content slides to an executive-summary density. */
+    .reveal aside.notes { display: none; }
+    /* Legible, ink-friendly print output. */
+    @media print {
+      html, body, .reveal-viewport { background: #FFFFFF !important; }
+      .reveal, .reveal .slides section { color: var(--blitzy-primary-navy); }
+      .reveal .controls, .reveal .progress, .reveal .slide-number {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -439,7 +474,7 @@
       <!-- 1 · Title -->
       <section class="slide-title" data-background-gradient="linear-gradient(68deg, #7A6DEC 15.56%, #5B39F3 62.74%, #4101DB 84.44%)">
         <div class="eyebrow">Blitzy &middot; Celery 5.6.2 (recovery)</div>
-        <div class="hero-icon"><i data-lucide="gauge"></i></div>
+        <div class="hero-icon"><i data-lucide="gauge" aria-hidden="true"></i></div>
         <h1>Global Rate Limiting for Celery Workers</h1>
         <p class="subtitle">Enforce a task's rate across the entire worker pool &mdash; not per process.</p>
         <p class="audience">For engineering leadership &amp; platform owners</p>
@@ -447,7 +482,7 @@
 
       <!-- 2 · Divider — The Problem -->
       <section class="slide-divider" data-background-gradient="linear-gradient(135deg, #2D1C77 0%, #1A105F 100%)">
-        <div class="divider-icon"><i data-lucide="alert-triangle"></i></div>
+        <div class="divider-icon"><i data-lucide="alert-triangle" aria-hidden="true"></i></div>
         <div class="eyebrow">Section 01</div>
         <h2>The Problem</h2>
       </section>
@@ -464,14 +499,14 @@
           <li>Aggregate exceeds the intended limit by a factor of N.</li>
         </ul>
         <div class="callout">
-          <i data-lucide="trending-up"></i>
+          <i data-lucide="trending-up" aria-hidden="true"></i>
           <span>Docs: a <span class="mono">per worker instance</span> limit &mdash; not global.</span>
         </div>
       </section>
 
       <!-- 4 · Divider — The Solution -->
       <section class="slide-divider" data-background-gradient="linear-gradient(135deg, #2D1C77 0%, #1A105F 100%)">
-        <div class="divider-icon"><i data-lucide="git-merge"></i></div>
+        <div class="divider-icon"><i data-lucide="git-merge" aria-hidden="true"></i></div>
         <div class="eyebrow">Section 02</div>
         <h2>The Solution</h2>
       </section>
@@ -488,8 +523,8 @@
           <li><strong>Default-off</strong> &mdash; byte-for-byte identical behavior when disabled.</li>
         </ul>
         <div class="icon-row">
-          <div class="icon-badge"><div class="badge"><i data-lucide="share-2"></i></div><div class="cap">Shared bucket</div></div>
-          <div class="icon-badge"><div class="badge"><i data-lucide="database"></i></div><div class="cap">Redis coordinated</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="share-2" aria-hidden="true"></i></div><div class="cap">Shared bucket</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="database" aria-hidden="true"></i></div><div class="cap">Redis coordinated</div></div>
         </div>
       </section>
 
@@ -501,27 +536,27 @@
         </div>
         <div class="kpi-grid">
           <div class="kpi-card">
-            <div class="kpi-icon"><i data-lucide="target"></i></div>
+            <div class="kpi-icon"><i data-lucide="target" aria-hidden="true"></i></div>
             <div class="kpi-value">&le; R</div>
             <div class="kpi-label">Aggregate throughput (enabled)</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-icon"><i data-lucide="users"></i></div>
+            <div class="kpi-icon"><i data-lucide="users" aria-hidden="true"></i></div>
             <div class="kpi-value">N &ge; 1</div>
             <div class="kpi-label">Any worker count</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-icon"><i data-lucide="package"></i></div>
+            <div class="kpi-icon"><i data-lucide="package" aria-hidden="true"></i></div>
             <div class="kpi-value">0</div>
             <div class="kpi-label">New dependencies</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-icon"><i data-lucide="zap"></i></div>
+            <div class="kpi-icon"><i data-lucide="zap" aria-hidden="true"></i></div>
             <div class="kpi-value">1</div>
             <div class="kpi-label">Atomic Redis round trip</div>
           </div>
           <div class="kpi-card">
-            <div class="kpi-icon"><i data-lucide="toggle-left"></i></div>
+            <div class="kpi-icon"><i data-lucide="toggle-left" aria-hidden="true"></i></div>
             <div class="kpi-value">OFF</div>
             <div class="kpi-label">Default state</div>
           </div>
@@ -530,7 +565,7 @@
 
       <!-- 7 · Divider — Architecture & Integration -->
       <section class="slide-divider" data-background-gradient="linear-gradient(135deg, #2D1C77 0%, #1A105F 100%)">
-        <div class="divider-icon"><i data-lucide="network"></i></div>
+        <div class="divider-icon"><i data-lucide="network" aria-hidden="true"></i></div>
         <div class="eyebrow">Section 03</div>
         <h2>Architecture &amp; Integration</h2>
       </section>
@@ -561,15 +596,21 @@ flowchart LR
           <h2>A single integration hook</h2>
         </div>
         <ul>
-          <li>The only modified site is <span class="code-chip">bucket_for_task()</span> in <span class="code-chip">consumer.py</span>.</li>
-          <li>Enabled with a <span class="code-chip">rate_limit</span> set returns a <strong>GlobalTokenBucket</strong>; otherwise the existing bucket.</li>
-          <li><span class="code-chip">strategy.py</span> and the deferral/retry loop are reused verbatim.</li>
+          <li>One modified site: <span class="code-chip">bucket_for_task()</span> in <span class="code-chip">consumer.py</span>.</li>
+          <li><span class="code-chip">strategy.py</span> and the deferral loop are reused verbatim.</li>
         </ul>
         <pre class="code-block"><span class="kw">def</span> bucket_for_task(self, type):
     limit = rate(getattr(type, <span class="st">'rate_limit'</span>, None))
     <span class="kw">if</span> limit <span class="kw">and</span> conf.worker_enable_global_rate_limits:
         <span class="kw">return</span> self._global.bucket(type.name, limit)   <span class="st"># NEW</span>
     <span class="kw">return</span> TokenBucket(limit, capacity=1) <span class="kw">if</span> limit <span class="kw">else</span> None</pre>
+        <aside class="notes">
+          When the master switch is on and the task has a rate_limit, the hook
+          returns a Redis-backed GlobalTokenBucket; otherwise it returns the
+          existing per-worker TokenBucket. strategy.py and the deferral/retry
+          loop operate on whatever bucket object they receive, so neither
+          needs to change.
+        </aside>
       </section>
 
       <!-- 10 · Content + Mermaid (atomic acquisition) -->
@@ -595,6 +636,12 @@ sequenceDiagram
     R-->>W: [0, retry_after] (deferred)
   end
         </pre>
+        <aside class="notes">
+          Each worker runs the same registered Lua script via EVALSHA. The
+          script reads the Redis server clock (TIME), refills the bucket by
+          elapsed time, then atomically consumes a token or returns the wait,
+          so concurrent workers cannot overshoot the configured rate.
+        </aside>
       </section>
 
       <!-- 11 · Content — Rate semantics & namespacing -->
@@ -608,12 +655,12 @@ sequenceDiagram
           <li>Buckets are namespaced <strong>per task and per rate</strong>, so budgets never collide.</li>
         </ul>
         <div class="visual-row">
-          <span class="visual-chip"><i data-lucide="clock"></i>10/s = 10</span>
-          <span class="visual-chip"><i data-lucide="clock"></i>100/m = n &divide; 60</span>
-          <span class="visual-chip"><i data-lucide="clock"></i>2/h = n &divide; 3600</span>
+          <span class="visual-chip"><i data-lucide="clock" aria-hidden="true"></i>10/s = 10</span>
+          <span class="visual-chip"><i data-lucide="clock" aria-hidden="true"></i>100/m = n &divide; 60</span>
+          <span class="visual-chip"><i data-lucide="clock" aria-hidden="true"></i>2/h = n &divide; 3600</span>
         </div>
         <div class="callout">
-          <i data-lucide="key-round"></i>
+          <i data-lucide="key-round" aria-hidden="true"></i>
           <span class="mono">celery:globalratelimit:&lt;task&gt;:&lt;rate&gt;</span>
         </div>
       </section>
@@ -630,14 +677,14 @@ sequenceDiagram
           <li>Reuses the redis-py client from <span class="code-chip">kombu[redis]</span> &mdash; <strong>no new dependency</strong>.</li>
         </ul>
         <div class="icon-row">
-          <div class="icon-badge"><div class="badge"><i data-lucide="shield-check"></i></div><div class="cap">Fail-open</div></div>
-          <div class="icon-badge"><div class="badge"><i data-lucide="life-buoy"></i></div><div class="cap">Local fallback</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="shield-check" aria-hidden="true"></i></div><div class="cap">Fail-open</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="life-buoy" aria-hidden="true"></i></div><div class="cap">Local fallback</div></div>
         </div>
       </section>
 
       <!-- 13 · Divider — Adoption, Safety & Validation -->
       <section class="slide-divider" data-background-gradient="linear-gradient(135deg, #2D1C77 0%, #1A105F 100%)">
-        <div class="divider-icon"><i data-lucide="check-circle"></i></div>
+        <div class="divider-icon"><i data-lucide="check-circle" aria-hidden="true"></i></div>
         <div class="eyebrow">Section 04</div>
         <h2>Adoption, Safety &amp; Validation</h2>
       </section>
@@ -654,7 +701,7 @@ sequenceDiagram
           <li>Disabled means behavior is <strong>byte-for-byte identical</strong> to today.</li>
         </ul>
         <div class="callout">
-          <i data-lucide="settings-2"></i>
+          <i data-lucide="settings-2" aria-hidden="true"></i>
           <span>Set via <span class="mono">app.conf</span>, a config module, or environment.</span>
         </div>
       </section>
@@ -671,9 +718,9 @@ sequenceDiagram
           <li>Unit tests (Redis mocked) and a multi-worker integration test prove aggregate <span class="code-chip">&le; R</span>.</li>
         </ul>
         <div class="icon-row">
-          <div class="icon-badge"><div class="badge"><i data-lucide="activity"></i></div><div class="cap">Metrics</div></div>
-          <div class="icon-badge"><div class="badge"><i data-lucide="line-chart"></i></div><div class="cap">Dashboard</div></div>
-          <div class="icon-badge"><div class="badge"><i data-lucide="flask-conical"></i></div><div class="cap">Tests</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="activity" aria-hidden="true"></i></div><div class="cap">Metrics</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="line-chart" aria-hidden="true"></i></div><div class="cap">Dashboard</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="flask-conical" aria-hidden="true"></i></div><div class="cap">Tests</div></div>
         </div>
       </section>
 
@@ -684,11 +731,11 @@ sequenceDiagram
         <h2>A task at rate R stays &le; R across any number of workers.</h2>
         <p class="subtitle">Opt-in &middot; fail-open &middot; zero new dependencies</p>
         <ul class="next-steps">
-          <li><i data-lucide="rocket"></i> Enable in staging</li>
-          <li><i data-lucide="link"></i> Set global_rate_limit_url</li>
-          <li><i data-lucide="line-chart"></i> Watch the dashboard</li>
+          <li><i data-lucide="rocket" aria-hidden="true"></i> Enable in staging</li>
+          <li><i data-lucide="link" aria-hidden="true"></i> Set global_rate_limit_url</li>
+          <li><i data-lucide="line-chart" aria-hidden="true"></i> Watch the dashboard</li>
         </ul>
-        <div class="brand-lockup"><span class="brand-mark"><i data-lucide="zap"></i></span> Blitzy</div>
+        <div class="brand-lockup"><span class="brand-mark"><i data-lucide="zap" aria-hidden="true"></i></span> Blitzy</div>
       </section>
 
     </div>
@@ -704,7 +751,11 @@ sequenceDiagram
     // Replace every <i data-lucide="..."> with its inline SVG.
     function renderIcons() {
       if (window.lucide && typeof window.lucide.createIcons === 'function') {
-        window.lucide.createIcons();
+        // Icons are decorative and accompanied by visible text; hide them
+        // from assistive technology and keyboard focus.
+        window.lucide.createIcons({
+          attrs: { 'aria-hidden': 'true', 'focusable': 'false' }
+        });
       }
     }
     document.addEventListener('DOMContentLoaded', renderIcons);

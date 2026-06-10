@@ -1,18 +1,23 @@
 """Redis-backed global (cross-worker) task rate limiting."""
 from collections import deque
+from urllib.parse import unquote
 
+from kombu.utils import symbol_by_name
 from kombu.utils.limits import TokenBucket
 from kombu.utils.url import _parse_url, maybe_sanitize_url
 
+from celery.utils.functional import dictfilter
 from celery.utils.log import get_logger
 from celery.utils.time import rate
 
 try:
     import redis.connection
     from kombu.transport.redis import get_redis_error_classes
+    from redis import CredentialProvider
 except ImportError:
     redis = None
     get_redis_error_classes = None
+    CredentialProvider = None
 
 __all__ = ('GlobalRateLimiter', 'GlobalTokenBucket', 'KEY_PREFIX')
 
@@ -23,6 +28,14 @@ KEY_PREFIX = 'celery:globalratelimit'
 
 #: Schemes accepted as a usable Redis endpoint for the limiter.
 REDIS_SCHEMES = frozenset({'redis', 'rediss', 'redis+socket', 'socket'})
+
+#: Raised when a non-SSL ``redis://`` URL carries SSL query parameters; an SSL
+#: connection must use the ``rediss://`` scheme.
+E_REDIS_SSL_PARAMS_AND_SCHEME_MISMATCH = (
+    'SSL connection parameters have been provided but the specified URL '
+    'scheme is redis://. A Redis SSL connection URL should use the scheme '
+    'rediss://.'
+)
 
 #: Atomic token-bucket acquisition executed server-side in a single round
 #: trip. Reads the Redis server clock so every worker shares one time source,
@@ -98,35 +111,76 @@ class GlobalRateLimiter:
         return scheme in REDIS_SCHEMES
 
     def _params_from_url(self, url):
+        # Mirror celery/backends/redis.py:_params_from_url so the limiter
+        # honors the same Redis URL features as the result backend: DB
+        # selection (path or virtual_host), unix sockets, rediss SSL
+        # parameters, credential providers, and redis-py query parsers.
         scheme, host, port, username, password, path, query = _parse_url(url)
-        connparams = {
-            key: value
-            for key, value in {
-                'host': host,
-                'port': port,
-                'username': username,
-                'password': password,
-            }.items()
-            if value is not None
-        }
+        connparams = dictfilter({
+            'host': host,
+            'port': port,
+            'username': username,
+            'password': password,
+            'db': query.pop('virtual_host', None),
+        })
+
         if scheme in ('socket', 'redis+socket'):
-            connparams['connection_class'] = \
-                redis.connection.UnixDomainSocketConnection
-            connparams['path'] = '/' + path if path else path
+            # Unix domain socket: 'path' is the socket path; the DB number,
+            # if any, arrives via the 'virtual_host' query argument.
+            connparams.update({
+                'connection_class':
+                    redis.connection.UnixDomainSocketConnection,
+                'path': '/' + path if path else path,
+            })
             connparams.pop('host', None)
             connparams.pop('port', None)
-            db = query.get('virtual_host')
         else:
-            db = path
-            if scheme == 'rediss':
-                connparams['connection_class'] = redis.SSLConnection
-        db = db or 0
-        if isinstance(db, str):
-            db = db.strip('/')
-        try:
-            connparams['db'] = int(db)
-        except (TypeError, ValueError):
-            connparams['db'] = 0
+            connparams['db'] = path
+
+        ssl_param_keys = ['ssl_ca_certs', 'ssl_certfile', 'ssl_keyfile',
+                          'ssl_cert_reqs']
+
+        if scheme == 'redis' and any(key in query for key in ssl_param_keys):
+            raise ValueError(E_REDIS_SSL_PARAMS_AND_SCHEME_MISMATCH)
+
+        if scheme == 'rediss':
+            connparams['connection_class'] = redis.SSLConnection
+            # These parameters are URL-encoded; decode before handing them
+            # to redis-py.
+            for ssl_setting in ssl_param_keys:
+                ssl_val = query.pop(ssl_setting, None)
+                if ssl_val:
+                    connparams[ssl_setting] = unquote(ssl_val)
+
+        # db may be a string and start with '/' as in kombu.
+        db = connparams.get('db') or 0
+        db = db.strip('/') if isinstance(db, str) else db
+        connparams['db'] = int(db)
+
+        # Credential provider supplied as a query argument.
+        credential_provider = query.pop('credential_provider', None)
+        if credential_provider:
+            if isinstance(credential_provider, str):
+                credential_provider = symbol_by_name(credential_provider)()
+            if CredentialProvider is None or not isinstance(
+                    credential_provider, CredentialProvider):
+                raise ValueError(
+                    'Credential provider is not an instance of a '
+                    'redis.CredentialProvider or a subclass')
+            connparams['credential_provider'] = credential_provider
+            # A credential provider supersedes username/password.
+            connparams.pop('username', None)
+            connparams.pop('password', None)
+
+        # Apply redis-py's URL query argument parsers (e.g. socket_timeout,
+        # health_check_interval) to the remaining query parameters.
+        for key, value in query.items():
+            if key in redis.connection.URL_QUERY_ARGUMENT_PARSERS:
+                query[key] = redis.connection.URL_QUERY_ARGUMENT_PARSERS[key](
+                    value)
+
+        # Query parameters override other parameters.
+        connparams.update(query)
         return connparams
 
     @property
@@ -211,12 +265,16 @@ class GlobalRateLimiter:
         if client is not None:
             try:
                 client.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                self._logger.debug(
+                    'Global rate limiter ignored error while closing the '
+                    'Redis client: %r', exc)
             try:
                 client.connection_pool.disconnect()
-            except Exception:
-                pass
+            except Exception as exc:
+                self._logger.debug(
+                    'Global rate limiter ignored error while disconnecting '
+                    'the Redis connection pool: %r', exc)
         self._client = None
         self._script = None
         self._client_initialized = False
@@ -252,7 +310,21 @@ class GlobalTokenBucket:
         self._retry_after = None
         local_fill_rate = self.fill_rate if self.fill_rate > 0 else 1.0
         self._local = TokenBucket(local_fill_rate, capacity=1)
-        self._fallback_only = script is None or self.fill_rate <= 0
+        # Determine permanent fail-open mode and capture a reason so the first
+        # can_consume can warn with the task name and bucket key.
+        if self.fill_rate <= 0:
+            self._fallback_only = True
+            self._fallback_reason = (
+                'configured rate parsed to a non-positive fill rate')
+        elif script is None:
+            self._fallback_only = True
+            self._fallback_reason = (
+                'redis-py is not installed' if redis is None
+                else 'no usable Redis client or script is available')
+        else:
+            self._fallback_only = False
+            self._fallback_reason = None
+        self._warned_permanent = False
         if self.fill_rate > 0:
             self._ttl = max(int(self.capacity / self.fill_rate) + 1, 60)
         else:
@@ -269,6 +341,13 @@ class GlobalTokenBucket:
 
     def can_consume(self, tokens=1):
         if self._fallback_only:
+            if not self._warned_permanent:
+                self._warned_permanent = True
+                self._logger.warning(
+                    'Global rate limiter unavailable for task %s (key=%s): '
+                    '%s; using the local per-worker bucket.',
+                    self._task_name, self._key, self._fallback_reason,
+                )
             if self._manager is not None:
                 self._manager._incr_fallback()
             return self._local.can_consume(tokens)
@@ -298,6 +377,9 @@ class GlobalTokenBucket:
         )
         if self._manager is not None:
             self._manager._incr_fallback()
+        # Discard any stale Redis retry hint so expected_time() reflects the
+        # local bucket after a fallback, preserving per-worker parity.
+        self._retry_after = None
         return self._local.can_consume(tokens)
 
     def expected_time(self, tokens=1):
