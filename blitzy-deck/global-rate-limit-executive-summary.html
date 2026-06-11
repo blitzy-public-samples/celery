@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Rate Limiting for Celery Workers — Blitzy Executive Summary</title>
+  <!-- Self-contained inline SVG favicon (Blitzy lightning); avoids a favicon network request -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235B39F3'/%3E%3Cpath d='M17 4 L8 18 h6 l-1 10 9-14 h-6 z' fill='%2394FAD5'/%3E%3C/svg%3E">
+
+  <!--
+    Self-contained reveal.js executive summary.
+    Subject: opt-in, Redis-backed GLOBAL rate limiter for Celery workers (Celery 5.6.2, "recovery").
+    This deliverable is ADDITIVE: it does not import, reference, or alter any Celery runtime module.
+    The Blitzy brand theme is reproduced INLINE below (it is the styling twin of
+    blitzy-deck/references/blitzy-reveal-theme.css) so this file renders standalone in a browser.
+    Only three pinned third-party libraries (reveal.js 5.1.0, Mermaid 11.4.0, Lucide 0.460.0)
+    and Google Fonts load from CDN — they are client-side asset pins, NOT package dependencies.
+  -->
+
+  <!-- Google Fonts: Inter (body), Space Grotesk (display), Fira Code (mono) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- reveal.js 5.1.0 core + reset (pinned CDN) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+
+  <style>
+/* =====================================================================
+   Blitzy brand theme — canonical tokens & component classes (AAP §0.5.3).
+   This exact CSS body is shared byte-for-byte between this reference
+   stylesheet (blitzy-deck/references/blitzy-reveal-theme.css) and the
+   inlined style block of blitzy-deck/global-rate-limit-executive-summary.html.
+   ===================================================================== */
+:root {
+  /* Authoritative Blitzy brand tokens */
+  --blitzy-primary: #5B39F3;
+  --blitzy-primary-dark: #2D1C77;
+  --blitzy-primary-navy: #1A105F;
+  --blitzy-accent-teal: #94FAD5;
+  --gradient-hero: linear-gradient(68deg, #7A6DEC 15.56%, #5B39F3 62.74%, #4101DB 84.44%);
+  --ff-body: 'Inter', sans-serif;
+  --ff-display: 'Space Grotesk', sans-serif;
+  --ff-mono: 'Fira Code', monospace;
+
+  /* Derived surfaces / text — built only from the brand palette */
+  --surface-1: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --border-soft: rgba(148, 250, 213, 0.18);
+  --text-light: #F4F2FF;
+  --text-muted: #B7AFE6;
+
+  /* Map reveal.js core variables onto the brand */
+  --r-background-color: var(--blitzy-primary-navy);
+  --r-main-font: var(--ff-body);
+  --r-main-font-size: 30px;
+  --r-main-color: var(--text-light);
+  --r-heading-font: var(--ff-display);
+  --r-heading-color: #FFFFFF;
+  --r-heading1-text-shadow: none;
+  --r-heading-text-transform: none;
+  --r-link-color: var(--blitzy-accent-teal);
+  --r-link-color-hover: #BFFCE6;
+  --r-code-font: var(--ff-mono);
+  --r-selection-background-color: rgba(148, 250, 213, 0.3);
+}
+
+/* ----- Base canvas ----- */
+html, body { background: var(--blitzy-primary-navy); }
+.reveal-viewport {
+  background:
+    radial-gradient(120% 120% at 50% -10%, #281A6E 0%, var(--blitzy-primary-navy) 52%, #0E0838 100%);
+}
+.reveal {
+  font-family: var(--ff-body);
+  color: var(--text-light);
+  font-weight: 400;
+}
+.reveal .slides { text-align: left; }
+
+/* ----- Typography ----- */
+.reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+  font-family: var(--ff-display);
+  color: #FFFFFF;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.012em;
+  line-height: 1.1;
+  margin: 0 0 0.3em;
+}
+.reveal h1 { font-size: 2.05em; }
+.reveal h2 { font-size: 1.45em; }
+.reveal p, .reveal li { line-height: 1.42; }
+.reveal strong { color: #FFFFFF; font-weight: 600; }
+.reveal a { color: var(--blitzy-accent-teal); text-decoration: none; }
+.reveal code, .reveal pre { font-family: var(--ff-mono); }
+::selection { background: rgba(148, 250, 213, 0.32); }
+
+/* ----- Lucide icon defaults (icons replace data-lucide placeholders with inline svg) ----- */
+.reveal i[data-lucide] { display: inline-flex; }
+.reveal svg.lucide { stroke: currentColor; stroke-width: 2; vertical-align: middle; }
+
+/* ----- reveal chrome (progress / controls / slide number) ----- */
+.reveal .progress { color: var(--blitzy-accent-teal); height: 4px; }
+.reveal .controls { color: var(--blitzy-accent-teal); }
+.reveal .slide-number {
+  background-color: rgba(0, 0, 0, 0.4);
+  color: var(--blitzy-accent-teal);
+  font-family: var(--ff-mono);
+}
+
+/* =====================================================================
+   Slide-type & component classes (names mirror the canonical theme)
+   ===================================================================== */
+
+/* ----- Title / hero slide ----- */
+.reveal section.slide-title {
+  text-align: center;
+  background: var(--gradient-hero);          /* token-driven hero background */
+  padding: 0 6%;
+}
+.reveal section.slide-title h1 {
+  font-size: 2.05em;
+  margin: 0.12em 0 0.22em;
+  color: #FFFFFF;
+  max-width: 16em;
+  margin-left: auto;
+  margin-right: auto;
+}
+.reveal section.slide-title .subtitle {
+  font-family: var(--ff-body);
+  font-size: 0.86em;
+  color: rgba(255, 255, 255, 0.94);
+  max-width: 24em;
+  margin: 0 auto;
+}
+.reveal section.slide-title .audience {
+  font-family: var(--ff-mono);
+  font-size: 0.54em;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.82);
+  margin-top: 1.3em;
+}
+
+/* ----- Eyebrow kicker ----- */
+.reveal .eyebrow {
+  font-family: var(--ff-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.46em;
+  font-weight: 500;
+  color: var(--blitzy-accent-teal);
+  margin-bottom: 0.7em;
+}
+
+/* ----- Hero icon badge ----- */
+.reveal .hero-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 128px;
+  height: 128px;
+  border-radius: 28px;
+  margin: 0 auto 0.45em;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+.reveal .hero-icon svg { width: 66px; height: 66px; color: #FFFFFF; }
+
+/* ----- Section divider ----- */
+.reveal section.slide-divider {
+  text-align: center;
+  background: linear-gradient(135deg, var(--blitzy-primary-dark) 0%, var(--blitzy-primary-navy) 100%);
+}
+.reveal section.slide-divider h2 { font-size: 2.3em; margin: 0; }
+.reveal section.slide-divider .eyebrow { color: var(--blitzy-accent-teal); }
+.reveal .divider-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 120px;
+  border-radius: 30px;
+  margin: 0 auto 0.45em;
+  background: rgba(148, 250, 213, 0.1);
+  border: 1px solid var(--border-soft);
+}
+.reveal .divider-icon svg { width: 60px; height: 60px; color: var(--blitzy-accent-teal); }
+
+/* ----- Content slide scaffolding ----- */
+.reveal section.content { text-align: left; }
+.reveal section.content > * { width: 100%; }
+.reveal .slide-head { margin-bottom: 0.55em; }
+.reveal .slide-head .eyebrow { margin-bottom: 0.28em; }
+.reveal .slide-head h2 { font-size: 1.42em; margin: 0; }
+.reveal .content p.lead {
+  font-size: 0.72em;
+  color: var(--text-muted);
+  margin: 0 0 0.5em;
+}
+.reveal .content ul { list-style: none; margin: 0.2em 0 0; padding: 0; }
+.reveal .content ul li {
+  position: relative;
+  padding-left: 1.5em;
+  margin: 0 0 0.55em;
+  font-size: 0.82em;
+}
+.reveal .content ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.46em;
+  width: 0.5em;
+  height: 0.5em;
+  transform: rotate(45deg);
+  background: var(--blitzy-accent-teal);
+  border-radius: 2px;
+}
+
+/* ----- Inline mono chips & code chips ----- */
+.reveal .code-chip {
+  font-family: var(--ff-mono);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 1px 8px;
+  color: var(--blitzy-accent-teal);
+  font-size: 0.86em;
+  white-space: nowrap;
+}
+
+/* ----- Block code chip (the 3-line hook) ----- */
+.reveal pre.code-block {
+  display: block;
+  width: 100%;
+  font-family: var(--ff-mono);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--blitzy-accent-teal);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 0.85em;
+  font-size: 0.44em;
+  line-height: 1.55;
+  color: #E9E5FF;
+  box-shadow: none;
+  white-space: pre;
+  overflow: visible;
+}
+.reveal pre.code-block .kw { color: #C7B9FF; }
+.reveal pre.code-block .st { color: var(--blitzy-accent-teal); }
+
+/* ----- Callout ----- */
+.reveal .callout {
+  display: flex;
+  align-items: center;
+  gap: 0.65em;
+  background: rgba(148, 250, 213, 0.08);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--blitzy-accent-teal);
+  border-radius: 12px;
+  padding: 13px 18px;
+  margin-top: 0.85em;
+  font-size: 0.6em;
+  color: var(--text-light);
+}
+.reveal .callout svg { width: 26px; height: 26px; color: var(--blitzy-accent-teal); flex: none; }
+.reveal .callout .mono { font-family: var(--ff-mono); color: var(--blitzy-accent-teal); }
+
+/* ----- Visual chip row (mono rate chips) ----- */
+.reveal .visual-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 0.95em; }
+.reveal .visual-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--ff-mono);
+  font-size: 0.56em;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 9px 15px;
+  color: var(--blitzy-accent-teal);
+}
+.reveal .visual-chip svg { width: 20px; height: 20px; color: var(--blitzy-accent-teal); }
+
+/* ----- Icon badge row ----- */
+.reveal .icon-row { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 1.05em; }
+.reveal .icon-badge { display: inline-flex; flex-direction: column; align-items: center; gap: 9px; }
+.reveal .icon-badge .badge {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reveal .icon-badge .badge svg { width: 34px; height: 34px; color: var(--blitzy-accent-teal); }
+.reveal .icon-badge .cap {
+  font-size: 0.4em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ----- KPI system ----- */
+.reveal .kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(188px, 1fr));
+  gap: 22px;
+  margin-top: 0.55em;
+}
+.reveal .kpi-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  text-align: left;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+.reveal .kpi-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: rgba(148, 250, 213, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.reveal .kpi-icon svg { width: 25px; height: 25px; color: var(--blitzy-accent-teal); }
+.reveal .kpi-value {
+  font-family: var(--ff-display);
+  font-size: 1.7em;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1;
+}
+.reveal .kpi-label {
+  font-size: 0.4em;
+  color: var(--text-muted);
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ----- Mermaid containers ----- */
+.reveal section.mermaid-slide .slide-head { margin-bottom: 0.25em; }
+.reveal pre.mermaid {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-align: center;
+  width: 100%;
+  margin: 0.3em auto 0;
+  font-size: 0.5em;
+  overflow: visible;
+}
+.reveal pre.mermaid svg { max-width: 100%; height: auto; margin: 0 auto; }
+/* Neutralize reveal.js global typography inside Mermaid html-labels so the
+   rendered text matches Mermaid's measured node width (prevents glyph clip). */
+.reveal pre.mermaid .nodeLabel,
+.reveal pre.mermaid .edgeLabel,
+.reveal pre.mermaid foreignObject p,
+.reveal pre.mermaid foreignObject div,
+.reveal pre.mermaid foreignObject span {
+  font-family: var(--ff-body);
+  letter-spacing: normal;
+  line-height: 1.25;
+  margin: 0;
+  padding: 0;
+}
+
+/* ----- Closing slide ----- */
+.reveal section.slide-closing {
+  text-align: center;
+  background: linear-gradient(135deg, var(--blitzy-primary-dark) 0%, var(--blitzy-primary-navy) 100%);
+}
+.reveal section.slide-closing h2 { font-size: 1.48em; max-width: 18em; margin: 0.2em auto 0.3em; }
+.reveal section.slide-closing .subtitle {
+  font-family: var(--ff-mono);
+  color: var(--blitzy-accent-teal);
+  font-size: 0.6em;
+  letter-spacing: 0.05em;
+}
+.reveal .accent-bar {
+  width: 96px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--blitzy-accent-teal), var(--blitzy-primary));
+  margin: 0 auto 1em;
+}
+.reveal ul.next-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 26px;
+  padding: 0;
+  margin: 1.2em 0;
+}
+.reveal ul.next-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.56em;
+  color: var(--text-light);
+}
+.reveal ul.next-steps li svg { width: 22px; height: 22px; color: var(--blitzy-accent-teal); }
+.reveal .brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--ff-display);
+  font-weight: 700;
+  font-size: 0.92em;
+  letter-spacing: 0.02em;
+  color: #FFFFFF;
+  margin-top: 0.5em;
+}
+.reveal .brand-lockup .brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--gradient-hero);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.reveal .brand-lockup .brand-mark svg { width: 24px; height: 24px; color: #FFFFFF; }
+
+/* ----- Accessibility: focus visibility, reduced motion, print ----- */
+/* Visible keyboard focus indicator using the brand accent. */
+.reveal a:focus-visible,
+.reveal button:focus-visible,
+.reveal .controls button:focus-visible,
+.reveal .navigate-left:focus-visible,
+.reveal .navigate-right:focus-visible,
+.reveal .navigate-up:focus-visible,
+.reveal .navigate-down:focus-visible {
+  outline: 3px solid var(--blitzy-accent-teal);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+/* Honor users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal .slides section,
+  .reveal .progress span,
+  .reveal [data-lucide],
+  .reveal svg {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+/* Speaker notes stay off the rendered slide (available in source / speaker
+   view), keeping content slides to an executive-summary density. */
+.reveal aside.notes { display: none; }
+/* Legible, ink-friendly print output. */
+@media print {
+  html, body, .reveal-viewport { background: #FFFFFF !important; }
+  .reveal, .reveal .slides section { color: var(--blitzy-primary-navy); }
+  .reveal .controls, .reveal .progress, .reveal .slide-number {
+    display: none !important;
+  }
+}
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+      <!-- 1 · Title -->
+      <section class="slide-title" data-background-gradient="linear-gradient(68deg, #7A6DEC 15.56%, #5B39F3 62.74%, #4101DB 84.44%)">
+        <div class="eyebrow">Blitzy &middot; Celery 5.6.2 (recovery)</div>
+        <div class="hero-icon"><i data-lucide="gauge" aria-hidden="true"></i></div>
+        <h1>Global Rate Limiting for Celery Workers</h1>
+        <p class="subtitle">Enforce a task's rate across the entire worker pool &mdash; not per process.</p>
+        <p class="audience">For engineering leadership &amp; platform owners</p>
+      </section>
+
+      <!-- 2 · Divider — The Problem -->
+      <section class="slide-divider" data-background-gradient="linear-gradient(135deg, #2D1C77 0%, #1A105F 100%)">
+        <div class="divider-icon"><i data-lucide="alert-triangle" aria-hidden="true"></i></div>
+        <div class="eyebrow">Section 01</div>
+        <h2>The Problem</h2>
+      </section>
+
+      <!-- 3 · Content — Per-worker limiting today -->
+      <section class="content">
+        <div class="slide-head">
+          <div class="eyebrow">The Problem</div>
+          <h2>Per-worker limiting today</h2>
+        </div>
+        <ul>
+          <li>Rate limits are enforced <strong>per worker process</strong>.</li>
+          <li>With N workers, a <span class="code-chip">10/s</span> task can reach <strong>N&times;10/s</strong>.</li>
+          <li>Aggregate exceeds the intended limit by a factor of N.</li>
+        </ul>
+        <div class="callout">
+          <i data-lucide="trending-up" aria-hidden="true"></i>
+          <span>Docs: a <span class="mono">per worker instance</span> limit &mdash; not global.</span>
+        </div>
+      </section>
+
+      <!-- 4 · Divider — The Solution -->
+      <section class="slide-divider" data-background-gradient="linear-gradient(135deg, #2D1C77 0%, #1A105F 100%)">
+        <div class="divider-icon"><i data-lucide="git-merge" aria-hidden="true"></i></div>
+        <div class="eyebrow">Section 02</div>
+        <h2>The Solution</h2>
+      </section>
+
+      <!-- 5 · Content — One shared bucket -->
+      <section class="content">
+        <div class="slide-head">
+          <div class="eyebrow">The Solution</div>
+          <h2>One shared bucket</h2>
+        </div>
+        <ul>
+          <li>Opt-in, Redis-backed <strong>single shared token bucket</strong> coordinates all workers.</li>
+          <li>Aggregate throughput <span class="code-chip">&le; R</span> for any <span class="code-chip">N &ge; 1</span> when enabled.</li>
+          <li><strong>Default-off</strong> &mdash; byte-for-byte identical behavior when disabled.</li>
+        </ul>
+        <div class="icon-row">
+          <div class="icon-badge"><div class="badge"><i data-lucide="share-2" aria-hidden="true"></i></div><div class="cap">Shared bucket</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="database" aria-hidden="true"></i></div><div class="cap">Redis coordinated</div></div>
+        </div>
+      </section>
+
+      <!-- 6 · KPI grid -->
+      <section class="content">
+        <div class="slide-head">
+          <div class="eyebrow">At a glance</div>
+          <h2>What changes &mdash; and what doesn't</h2>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon"><i data-lucide="target" aria-hidden="true"></i></div>
+            <div class="kpi-value">&le; R</div>
+            <div class="kpi-label">Aggregate throughput (enabled)</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon"><i data-lucide="users" aria-hidden="true"></i></div>
+            <div class="kpi-value">N &ge; 1</div>
+            <div class="kpi-label">Any worker count</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon"><i data-lucide="package" aria-hidden="true"></i></div>
+            <div class="kpi-value">0</div>
+            <div class="kpi-label">New dependencies</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon"><i data-lucide="zap" aria-hidden="true"></i></div>
+            <div class="kpi-value">1</div>
+            <div class="kpi-label">Atomic Redis round trip</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon"><i data-lucide="toggle-left" aria-hidden="true"></i></div>
+            <div class="kpi-value">OFF</div>
+            <div class="kpi-label">Default state</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7 · Divider — Architecture & Integration -->
+      <section class="slide-divider" data-background-gradient="linear-gradient(135deg, #2D1C77 0%, #1A105F 100%)">
+        <div class="divider-icon"><i data-lucide="network" aria-hidden="true"></i></div>
+        <div class="eyebrow">Section 03</div>
+        <h2>Architecture &amp; Integration</h2>
+      </section>
+
+      <!-- 8 · Content + Mermaid (end-to-end data flow) -->
+      <section class="content mermaid-slide">
+        <div class="slide-head">
+          <div class="eyebrow">Architecture</div>
+          <h2>End-to-end data flow</h2>
+        </div>
+        <p class="lead">Strategy and the deferral loop stay unchanged &mdash; only the bucket object differs.</p>
+        <pre class="mermaid">
+flowchart LR
+  P["Producer&lt;br/&gt;app.send_task"] --> B["Broker queue"]
+  B --> C["Worker consumer&lt;br/&gt;strategy.py (unchanged)"]
+  C --> H{"bucket_for_task()&lt;br/&gt;enabled AND rate_limit?"}
+  H -- No --> L["Local TokenBucket&lt;br/&gt;(per-worker, today)"]
+  H -- Yes --> G["GlobalTokenBucket (NEW)"]
+  G --> R[("Redis&lt;br/&gt;atomic Lua / EVALSHA")]
+  R -. "Redis error" .-> F["Fail-open:&lt;br/&gt;warn + local bucket"]
+        </pre>
+      </section>
+
+      <!-- 9 · Content — Single integration hook -->
+      <section class="content">
+        <div class="slide-head">
+          <div class="eyebrow">Integration</div>
+          <h2>A single integration hook</h2>
+        </div>
+        <ul>
+          <li>One modified site: <span class="code-chip">bucket_for_task()</span> in <span class="code-chip">consumer.py</span>.</li>
+          <li><span class="code-chip">strategy.py</span> and the deferral loop are reused verbatim.</li>
+        </ul>
+        <pre class="code-block"><span class="kw">def</span> bucket_for_task(self, type):
+    limit = rate(getattr(type, <span class="st">'rate_limit'</span>, None))
+    <span class="kw">if</span> limit <span class="kw">and</span> conf.worker_enable_global_rate_limits:
+        <span class="kw">return</span> self._global.bucket(type.name, limit)   <span class="st"># NEW</span>
+    <span class="kw">return</span> TokenBucket(limit, capacity=1) <span class="kw">if</span> limit <span class="kw">else</span> None</pre>
+        <aside class="notes">
+          When the master switch is on and the task has a rate_limit, the hook
+          returns a Redis-backed GlobalTokenBucket; otherwise it returns the
+          existing per-worker TokenBucket. strategy.py and the deferral/retry
+          loop operate on whatever bucket object they receive, so neither
+          needs to change.
+        </aside>
+      </section>
+
+      <!-- 10 · Content + Mermaid (atomic acquisition) -->
+      <section class="content mermaid-slide">
+        <div class="slide-head">
+          <div class="eyebrow">Atomicity</div>
+          <h2>Atomic token acquisition</h2>
+        </div>
+        <ul>
+          <li>One server-side <strong>Lua script</strong> &mdash; <span class="code-chip">register_script</span> / <span class="code-chip">EVALSHA</span>.</li>
+          <li>Reads the Redis server clock (<span class="code-chip">TIME</span>) to avoid worker skew; <span class="code-chip">capacity = 1</span>, bounded <span class="code-chip">TTL</span>.</li>
+        </ul>
+        <pre class="mermaid">
+sequenceDiagram
+  participant W as Worker (one of N)
+  participant R as Redis (shared)
+  W->>R: EVALSHA token script(key, fill_rate, capacity)
+  R->>R: now = TIME, refill = min(cap, tokens + elapsed*rate)
+  alt tokens >= 1
+    R->>R: tokens -= 1, set TTL
+    R-->>W: [1, 0] (allowed)
+  else
+    R-->>W: [0, retry_after] (deferred)
+  end
+        </pre>
+        <aside class="notes">
+          Each worker runs the same registered Lua script via EVALSHA. The
+          script reads the Redis server clock (TIME), refills the bucket by
+          elapsed time, then atomically consumes a token or returns the wait,
+          so concurrent workers cannot overshoot the configured rate.
+        </aside>
+      </section>
+
+      <!-- 11 · Content — Rate semantics & namespacing -->
+      <section class="content">
+        <div class="slide-head">
+          <div class="eyebrow">Semantics</div>
+          <h2>Rate units &amp; namespacing</h2>
+        </div>
+        <ul>
+          <li>Reuses Celery's existing <span class="code-chip">rate()</span> parser &mdash; no reimplementation.</li>
+          <li>Buckets are namespaced <strong>per task and per rate</strong>, so budgets never collide.</li>
+        </ul>
+        <div class="visual-row">
+          <span class="visual-chip"><i data-lucide="clock" aria-hidden="true"></i>10/s = 10</span>
+          <span class="visual-chip"><i data-lucide="clock" aria-hidden="true"></i>100/m = n &divide; 60</span>
+          <span class="visual-chip"><i data-lucide="clock" aria-hidden="true"></i>2/h = n &divide; 3600</span>
+        </div>
+        <div class="callout">
+          <i data-lucide="key-round" aria-hidden="true"></i>
+          <span class="mono">celery:globalratelimit:&lt;task&gt;:&lt;rate&gt;</span>
+        </div>
+      </section>
+
+      <!-- 12 · Content — Fail-open & client reuse -->
+      <section class="content">
+        <div class="slide-head">
+          <div class="eyebrow">Safety</div>
+          <h2>Fail-open by design</h2>
+        </div>
+        <ul>
+          <li>If Redis is unavailable, the limiter <strong>logs a warning</strong> and falls back to the local per-worker TokenBucket.</li>
+          <li>Tasks are never dropped, rejected, or dead-lettered.</li>
+          <li>Reuses the redis-py client from <span class="code-chip">kombu[redis]</span> &mdash; <strong>no new dependency</strong>.</li>
+        </ul>
+        <div class="icon-row">
+          <div class="icon-badge"><div class="badge"><i data-lucide="shield-check" aria-hidden="true"></i></div><div class="cap">Fail-open</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="life-buoy" aria-hidden="true"></i></div><div class="cap">Local fallback</div></div>
+        </div>
+      </section>
+
+      <!-- 13 · Divider — Adoption, Safety & Validation -->
+      <section class="slide-divider" data-background-gradient="linear-gradient(135deg, #2D1C77 0%, #1A105F 100%)">
+        <div class="divider-icon"><i data-lucide="check-circle" aria-hidden="true"></i></div>
+        <div class="eyebrow">Section 04</div>
+        <h2>Adoption, Safety &amp; Validation</h2>
+      </section>
+
+      <!-- 14 · Content — Configuration & compatibility -->
+      <section class="content">
+        <div class="slide-head">
+          <div class="eyebrow">Configuration</div>
+          <h2>Two additive settings</h2>
+        </div>
+        <ul>
+          <li><span class="code-chip">worker_enable_global_rate_limits</span> &mdash; bool, default <strong>False</strong>.</li>
+          <li><span class="code-chip">global_rate_limit_url</span> &mdash; str, default <strong>None</strong> (falls back to result / broker URL).</li>
+          <li>Disabled means behavior is <strong>byte-for-byte identical</strong> to today.</li>
+        </ul>
+        <div class="callout">
+          <i data-lucide="settings-2" aria-hidden="true"></i>
+          <span>Set via <span class="mono">app.conf</span>, a config module, or environment.</span>
+        </div>
+      </section>
+
+      <!-- 15 · Content — Observability & testing -->
+      <section class="content">
+        <div class="slide-head">
+          <div class="eyebrow">Validation</div>
+          <h2>Observability &amp; testing</h2>
+        </div>
+        <ul>
+          <li>Structured logging plus allow / deny / fallback counters and a fail-open warning.</li>
+          <li>A Grafana dashboard template ships under <span class="code-chip">deliverables/</span>.</li>
+          <li>Unit tests (Redis mocked) and a multi-worker integration test prove aggregate <span class="code-chip">&le; R</span>.</li>
+        </ul>
+        <div class="icon-row">
+          <div class="icon-badge"><div class="badge"><i data-lucide="activity" aria-hidden="true"></i></div><div class="cap">Metrics</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="line-chart" aria-hidden="true"></i></div><div class="cap">Dashboard</div></div>
+          <div class="icon-badge"><div class="badge"><i data-lucide="flask-conical" aria-hidden="true"></i></div><div class="cap">Tests</div></div>
+        </div>
+      </section>
+
+      <!-- 16 · Closing -->
+      <section class="slide-closing" data-background-gradient="linear-gradient(135deg, #2D1C77 0%, #1A105F 100%)">
+        <div class="accent-bar"></div>
+        <div class="eyebrow">Key takeaway</div>
+        <h2>A task at rate R stays &le; R across any number of workers.</h2>
+        <p class="subtitle">Opt-in &middot; fail-open &middot; zero new dependencies</p>
+        <ul class="next-steps">
+          <li><i data-lucide="rocket" aria-hidden="true"></i> Enable in staging</li>
+          <li><i data-lucide="link" aria-hidden="true"></i> Set global_rate_limit_url</li>
+          <li><i data-lucide="line-chart" aria-hidden="true"></i> Watch the dashboard</li>
+        </ul>
+        <div class="brand-lockup"><span class="brand-mark"><i data-lucide="zap" aria-hidden="true"></i></span> Blitzy</div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- reveal.js 5.1.0 (UMD, classic) -->
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+  <!-- Lucide 0.460.0 (UMD, classic) -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+
+  <!-- Initialize Lucide + reveal.js, then expose Reveal for the Mermaid module -->
+  <script>
+    // Replace every <i data-lucide="..."> with its inline SVG.
+    function renderIcons() {
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        // Icons are decorative and accompanied by visible text; hide them
+        // from assistive technology and keyboard focus.
+        window.lucide.createIcons({
+          attrs: { 'aria-hidden': 'true', 'focusable': 'false' }
+        });
+      }
+    }
+    document.addEventListener('DOMContentLoaded', renderIcons);
+
+    // Boot the deck. 1280x720 canvas suits an executive 16:9 projection.
+    Reveal.initialize({
+      hash: true,
+      slideNumber: 'c/t',
+      transition: 'slide',
+      controls: true,
+      progress: true,
+      center: true,
+      width: 1280,
+      height: 720,
+      margin: 0.06,
+      minScale: 0.2,
+      maxScale: 2.0
+    });
+
+    // Expose the instance so the Mermaid ES module can attach lifecycle hooks.
+    window.Reveal = Reveal;
+
+    // Re-render icons whenever reveal becomes ready or changes slide.
+    Reveal.on('ready', renderIcons);
+    Reveal.on('slidechanged', renderIcons);
+  </script>
+
+  <!-- Mermaid 11.4.0 (ES module). startOnLoad MUST be false; render on reveal lifecycle. -->
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs';
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      securityLevel: 'loose',
+      // Extra label padding + useMaxWidth keep node text from clipping and let
+      // the SVG scale to the slide width.
+      flowchart: { htmlLabels: true, useMaxWidth: true, padding: 14, nodeSpacing: 45, rankSpacing: 55 },
+      sequence: { useMaxWidth: true, wrap: false },
+      themeVariables: {
+        primaryColor: '#5B39F3',
+        primaryTextColor: '#FFFFFF',
+        primaryBorderColor: '#94FAD5',
+        lineColor: '#94FAD5',
+        secondaryColor: '#2D1C77',
+        tertiaryColor: '#1A105F',
+        fontFamily: 'Inter'
+      }
+    });
+
+    // Render only diagrams that are (a) not yet processed and (b) currently
+    // visible. reveal.js sets non-current slides to display:none, which gives
+    // their diagram containers zero dimensions; rendering Mermaid into a
+    // zero-size node yields NaN geometry. offsetParent === null detects that
+    // hidden state, so each diagram renders the moment its slide is shown.
+    // The data-processed guard prevents re-rendering on revisits.
+    async function runMermaid() {
+      const nodes = Array.from(
+        document.querySelectorAll('.reveal .slides .mermaid')
+      ).filter(
+        (n) => n.getAttribute('data-processed') !== 'true' && n.offsetParent !== null
+      );
+      if (!nodes.length) return;
+      try {
+        // Ensure web fonts (Inter) are loaded before Mermaid measures label
+        // widths; otherwise text is measured with a fallback font and the
+        // final glyph can clip once Inter renders slightly wider.
+        if (document.fonts && document.fonts.ready) {
+          await document.fonts.ready;
+        }
+        await mermaid.run({ nodes });
+        // Mermaid html-labels can under-measure node text by 1-2px, clipping the
+        // last glyph inside the fixed-size <foreignObject>. Add a small symmetric
+        // width buffer (and recenter via x) so every label has breathing room.
+        nodes.forEach((n) => {
+          n.querySelectorAll('foreignObject').forEach((foEl) => {
+            const w = parseFloat(foEl.getAttribute('width')) || 0;
+            const x = parseFloat(foEl.getAttribute('x')) || 0;
+            if (w > 0) {
+              foEl.setAttribute('width', (w + 12).toString());
+              foEl.setAttribute('x', (x - 6).toString());
+            }
+          });
+        });
+      } catch (err) {
+        console.error('Mermaid render failed:', err);
+      }
+    }
+
+    function wireMermaid() {
+      const deck = window.Reveal;
+      if (deck && typeof deck.on === 'function') {
+        deck.on('ready', runMermaid);
+        deck.on('slidechanged', runMermaid);
+        // If reveal was already ready before this module ran, render now.
+        if (typeof deck.isReady === 'function' && deck.isReady()) {
+          runMermaid();
+        }
+      } else {
+        // Fallback if Reveal is unavailable for any reason.
+        window.addEventListener('load', runMermaid);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', wireMermaid);
+    } else {
+      wireMermaid();
+    }
+  </script>
+</body>
+</html>

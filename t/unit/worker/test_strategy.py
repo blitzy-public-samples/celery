@@ -10,6 +10,7 @@ from celery.app.trace import LOG_RECEIVED
 from celery.exceptions import InvalidTaskError
 from celery.utils.time import rate
 from celery.worker import state
+from celery.worker.global_ratelimit import GlobalTokenBucket
 from celery.worker.request import Request
 from celery.worker.strategy import default as default_strategy
 from celery.worker.strategy import hybrid_to_proto2, proto1_to_proto2
@@ -287,6 +288,27 @@ class test_default_strategy_proto2:
                     C.get_request()
         finally:
             state.revoked.discard(task.id)
+
+    def test_when_rate_limited__global_bucket(self):
+        # A GlobalTokenBucket injected into task_buckets must be honored by the
+        # (unchanged) bucket-agnostic gating decision, delegating to the same
+        # deferral path used for the per-worker TokenBucket. Built in permanent
+        # fallback mode (no manager/script) so no live Redis is required.
+        task = self.add.s(2, 2)
+        gbucket = GlobalTokenBucket(rate('1/m'), capacity=1)
+        with self._context(task, rate_limits=True) as C:
+            C.consumer.task_buckets.__getitem__.side_effect = (
+                lambda key: gbucket if key == task.task else None
+            )
+            C()
+            assert C.was_rate_limited()
+
+    def test_when_rate_limited__global_bucket_disabled(self):
+        # Disabled path is byte-for-byte unchanged: rate limiting off -> reserved.
+        task = self.add.s(2, 2)
+        with self._context(task, rate_limits=False, limit='1/m') as C:
+            C()
+            assert C.was_reserved()
 
 
 class test_default_strategy_proto1(test_default_strategy_proto2):

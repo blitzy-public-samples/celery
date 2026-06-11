@@ -1029,10 +1029,12 @@ General
     Default is the :setting:`task_default_rate_limit` setting:
     if not specified means rate limiting for tasks is disabled by default.
 
-    Note that this is a *per worker instance* rate limit, and not a global
-    rate limit. To enforce a global rate limit (e.g., for an API with a
-    maximum number of  requests per second), you must restrict to a given
-    queue.
+    Note that by default this is a *per worker instance* rate limit, and not a
+    global rate limit. To enforce a global rate limit (e.g., for an API with a
+    maximum number of requests per second), you can either restrict to a given
+    queue, or enable the opt-in global rate limiter by setting
+    :setting:`worker_enable_global_rate_limits` to :const:`True`, which enforces
+    the configured rate as a single shared token bucket across all workers.
 
 .. attribute:: Task.time_limit
 
