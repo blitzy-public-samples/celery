@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 import pytest
 from amqp import ChannelError
 from billiard.exceptions import RestartFreqExceeded
+from kombu.utils.limits import TokenBucket
 
 from celery import bootsteps
 from celery.contrib.testing.mocks import ContextMock
@@ -20,6 +21,7 @@ from celery.worker.consumer.gossip import Gossip
 from celery.worker.consumer.heart import Heart
 from celery.worker.consumer.mingle import Mingle
 from celery.worker.consumer.tasks import Tasks
+from celery.worker.global_ratelimit import GlobalTokenBucket
 from celery.worker.state import active_requests, successful_requests
 
 
@@ -1755,3 +1757,69 @@ class test_Gossip:
         message.headers = {'hostname': g.hostname}
         g.on_message(prepare, message)
         g.clock.forward.assert_called_with()
+
+
+class test_Consumer_GlobalRateLimit(ConsumerTestCase):
+    """Additive coverage for the opt-in Redis-backed global rate limiter hook.
+
+    Exercises ``Consumer.bucket_for_task`` for the new
+    ``worker_enable_global_rate_limits`` switch. Redis is never contacted:
+    ``bucket_for_task`` only constructs the bucket object, and
+    ``GlobalRateLimiter`` uses a lazy client, so these tests assert only the
+    *type* of the returned bucket and require no live Redis or redis-py.
+    """
+
+    def setup_method(self):
+        @self.app.task(rate_limit='10/s', shared=False)
+        def limited(x):
+            return x
+
+        @self.app.task(shared=False)
+        def unlimited(x):
+            return x
+
+        self.limited = limited
+        self.unlimited = unlimited
+
+    def test_bucket_for_task_returns_global_bucket_when_enabled(self):
+        # Enabled + a configured rate_limit -> the Redis-backed bucket.
+        c = self.get_consumer()
+        prev = self.app.conf.worker_enable_global_rate_limits
+        try:
+            self.app.conf.worker_enable_global_rate_limits = True
+            bucket = c.bucket_for_task(self.limited)
+            assert isinstance(bucket, GlobalTokenBucket)
+        finally:
+            self.app.conf.worker_enable_global_rate_limits = prev
+
+    def test_bucket_for_task_returns_plain_tokenbucket_when_disabled(self):
+        # Disabled (default) -> byte-for-byte identical to today: a plain
+        # per-worker TokenBucket, never a GlobalTokenBucket.
+        c = self.get_consumer()
+        prev = self.app.conf.worker_enable_global_rate_limits
+        try:
+            self.app.conf.worker_enable_global_rate_limits = False
+            bucket = c.bucket_for_task(self.limited)
+            assert isinstance(bucket, TokenBucket)
+            assert not isinstance(bucket, GlobalTokenBucket)
+        finally:
+            self.app.conf.worker_enable_global_rate_limits = prev
+
+    def test_bucket_for_task_returns_none_when_enabled_but_no_rate_limit(self):
+        # Enabled but no rate_limit -> None (the ``limit and ...`` short-circuit
+        # returns before the global limiter is ever consulted).
+        c = self.get_consumer()
+        prev = self.app.conf.worker_enable_global_rate_limits
+        try:
+            self.app.conf.worker_enable_global_rate_limits = True
+            assert c.bucket_for_task(self.unlimited) is None
+        finally:
+            self.app.conf.worker_enable_global_rate_limits = prev
+
+    def test_global_rate_limiter_not_created_when_disabled(self):
+        # The lazy ``_global_rate_limiter`` cached_property must not be
+        # materialized on the disabled (default) path.
+        c = self.get_consumer()
+        assert self.app.conf.worker_enable_global_rate_limits in (False, None)
+        c.bucket_for_task(self.limited)
+        assert '_global_rate_limiter' not in c.__dict__
