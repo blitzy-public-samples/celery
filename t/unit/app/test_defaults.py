@@ -42,6 +42,12 @@ class test_defaults:
         assert find('default_queue')[2].default == 'celery'
         assert find('task_default_exchange')[2] is None
 
+    def test_global_rate_limit_settings(self):
+        assert 'worker_enable_global_rate_limits' in SETTING_KEYS
+        assert 'global_rate_limit_url' in SETTING_KEYS
+        assert DEFAULTS['worker_enable_global_rate_limits'] is False
+        assert DEFAULTS['global_rate_limit_url'] is None
+
     @property
     def defaults(self):
         return import_module('celery.app.defaults')
