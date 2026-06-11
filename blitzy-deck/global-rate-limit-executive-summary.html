@@ -13,7 +13,7 @@
     This deliverable is ADDITIVE: it does not import, reference, or alter any Celery runtime module.
     The Blitzy brand theme is reproduced INLINE below (it is the styling twin of
     blitzy-deck/references/blitzy-reveal-theme.css) so this file renders standalone in a browser.
-    Only three pinned third-party libraries (reveal.js 5.1.0, Mermaid 11.4.0, Lucide 0.460.0)
+    Only three pinned third-party libraries (reveal.js 5.1.0, Mermaid 11.15.0, Lucide 0.460.0)
     and Google Fonts load from CDN — they are client-side asset pins, NOT package dependencies.
   -->
 
@@ -27,444 +27,447 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
 
   <style>
-    /* =====================================================================
-       Blitzy brand theme — inlined (canonical tokens, AAP §0.5.3 authoritative)
-       ===================================================================== */
-    :root {
-      /* Authoritative Blitzy brand tokens */
-      --blitzy-primary: #5B39F3;
-      --blitzy-primary-dark: #2D1C77;
-      --blitzy-primary-navy: #1A105F;
-      --blitzy-accent-teal: #94FAD5;
-      --gradient-hero: linear-gradient(68deg, #7A6DEC 15.56%, #5B39F3 62.74%, #4101DB 84.44%);
-      --ff-body: 'Inter', sans-serif;
-      --ff-display: 'Space Grotesk', sans-serif;
-      --ff-mono: 'Fira Code', monospace;
+/* =====================================================================
+   Blitzy brand theme — canonical tokens & component classes (AAP §0.5.3).
+   This exact CSS body is shared byte-for-byte between this reference
+   stylesheet (blitzy-deck/references/blitzy-reveal-theme.css) and the
+   inlined style block of blitzy-deck/global-rate-limit-executive-summary.html.
+   ===================================================================== */
+:root {
+  /* Authoritative Blitzy brand tokens */
+  --blitzy-primary: #5B39F3;
+  --blitzy-primary-dark: #2D1C77;
+  --blitzy-primary-navy: #1A105F;
+  --blitzy-accent-teal: #94FAD5;
+  --gradient-hero: linear-gradient(68deg, #7A6DEC 15.56%, #5B39F3 62.74%, #4101DB 84.44%);
+  --ff-body: 'Inter', sans-serif;
+  --ff-display: 'Space Grotesk', sans-serif;
+  --ff-mono: 'Fira Code', monospace;
 
-      /* Derived surfaces / text — built only from the brand palette */
-      --surface-1: rgba(255, 255, 255, 0.045);
-      --surface-2: rgba(255, 255, 255, 0.07);
-      --border-soft: rgba(148, 250, 213, 0.18);
-      --text-light: #F4F2FF;
-      --text-muted: #B7AFE6;
+  /* Derived surfaces / text — built only from the brand palette */
+  --surface-1: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --border-soft: rgba(148, 250, 213, 0.18);
+  --text-light: #F4F2FF;
+  --text-muted: #B7AFE6;
 
-      /* Map reveal.js core variables onto the brand */
-      --r-background-color: var(--blitzy-primary-navy);
-      --r-main-font: var(--ff-body);
-      --r-main-font-size: 30px;
-      --r-main-color: var(--text-light);
-      --r-heading-font: var(--ff-display);
-      --r-heading-color: #FFFFFF;
-      --r-heading1-text-shadow: none;
-      --r-heading-text-transform: none;
-      --r-link-color: var(--blitzy-accent-teal);
-      --r-link-color-hover: #BFFCE6;
-      --r-code-font: var(--ff-mono);
-      --r-selection-background-color: rgba(148, 250, 213, 0.3);
-    }
+  /* Map reveal.js core variables onto the brand */
+  --r-background-color: var(--blitzy-primary-navy);
+  --r-main-font: var(--ff-body);
+  --r-main-font-size: 30px;
+  --r-main-color: var(--text-light);
+  --r-heading-font: var(--ff-display);
+  --r-heading-color: #FFFFFF;
+  --r-heading1-text-shadow: none;
+  --r-heading-text-transform: none;
+  --r-link-color: var(--blitzy-accent-teal);
+  --r-link-color-hover: #BFFCE6;
+  --r-code-font: var(--ff-mono);
+  --r-selection-background-color: rgba(148, 250, 213, 0.3);
+}
 
-    /* ----- Base canvas ----- */
-    html, body { background: var(--blitzy-primary-navy); }
-    .reveal-viewport {
-      background:
-        radial-gradient(120% 120% at 50% -10%, #281A6E 0%, var(--blitzy-primary-navy) 52%, #0E0838 100%);
-    }
-    .reveal {
-      font-family: var(--ff-body);
-      color: var(--text-light);
-      font-weight: 400;
-    }
-    .reveal .slides { text-align: left; }
+/* ----- Base canvas ----- */
+html, body { background: var(--blitzy-primary-navy); }
+.reveal-viewport {
+  background:
+    radial-gradient(120% 120% at 50% -10%, #281A6E 0%, var(--blitzy-primary-navy) 52%, #0E0838 100%);
+}
+.reveal {
+  font-family: var(--ff-body);
+  color: var(--text-light);
+  font-weight: 400;
+}
+.reveal .slides { text-align: left; }
 
-    /* ----- Typography ----- */
-    .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
-      font-family: var(--ff-display);
-      color: #FFFFFF;
-      font-weight: 600;
-      text-transform: none;
-      letter-spacing: -0.012em;
-      line-height: 1.1;
-      margin: 0 0 0.3em;
-    }
-    .reveal h1 { font-size: 2.05em; }
-    .reveal h2 { font-size: 1.45em; }
-    .reveal p, .reveal li { line-height: 1.42; }
-    .reveal strong { color: #FFFFFF; font-weight: 600; }
-    .reveal a { color: var(--blitzy-accent-teal); text-decoration: none; }
-    .reveal code, .reveal pre { font-family: var(--ff-mono); }
-    ::selection { background: rgba(148, 250, 213, 0.32); }
+/* ----- Typography ----- */
+.reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+  font-family: var(--ff-display);
+  color: #FFFFFF;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.012em;
+  line-height: 1.1;
+  margin: 0 0 0.3em;
+}
+.reveal h1 { font-size: 2.05em; }
+.reveal h2 { font-size: 1.45em; }
+.reveal p, .reveal li { line-height: 1.42; }
+.reveal strong { color: #FFFFFF; font-weight: 600; }
+.reveal a { color: var(--blitzy-accent-teal); text-decoration: none; }
+.reveal code, .reveal pre { font-family: var(--ff-mono); }
+::selection { background: rgba(148, 250, 213, 0.32); }
 
-    /* ----- Lucide icon defaults (icons replace <i data-lucide> with <svg>) ----- */
-    .reveal i[data-lucide] { display: inline-flex; }
-    .reveal svg.lucide { stroke: currentColor; stroke-width: 2; vertical-align: middle; }
+/* ----- Lucide icon defaults (icons replace data-lucide placeholders with inline svg) ----- */
+.reveal i[data-lucide] { display: inline-flex; }
+.reveal svg.lucide { stroke: currentColor; stroke-width: 2; vertical-align: middle; }
 
-    /* ----- reveal chrome (progress / controls / slide number) ----- */
-    .reveal .progress { color: var(--blitzy-accent-teal); height: 4px; }
-    .reveal .controls { color: var(--blitzy-accent-teal); }
-    .reveal .slide-number {
-      background-color: rgba(0, 0, 0, 0.4);
-      color: var(--blitzy-accent-teal);
-      font-family: var(--ff-mono);
-    }
+/* ----- reveal chrome (progress / controls / slide number) ----- */
+.reveal .progress { color: var(--blitzy-accent-teal); height: 4px; }
+.reveal .controls { color: var(--blitzy-accent-teal); }
+.reveal .slide-number {
+  background-color: rgba(0, 0, 0, 0.4);
+  color: var(--blitzy-accent-teal);
+  font-family: var(--ff-mono);
+}
 
-    /* =====================================================================
-       Slide-type & component classes (names mirror the canonical theme)
-       ===================================================================== */
+/* =====================================================================
+   Slide-type & component classes (names mirror the canonical theme)
+   ===================================================================== */
 
-    /* ----- Title / hero slide ----- */
-    .reveal section.slide-title {
-      text-align: center;
-      background: var(--gradient-hero);          /* token-driven hero background */
-      padding: 0 6%;
-    }
-    .reveal section.slide-title h1 {
-      font-size: 2.05em;
-      margin: 0.12em 0 0.22em;
-      color: #FFFFFF;
-      max-width: 16em;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .reveal section.slide-title .subtitle {
-      font-family: var(--ff-body);
-      font-size: 0.86em;
-      color: rgba(255, 255, 255, 0.94);
-      max-width: 24em;
-      margin: 0 auto;
-    }
-    .reveal section.slide-title .audience {
-      font-family: var(--ff-mono);
-      font-size: 0.54em;
-      letter-spacing: 0.05em;
-      color: rgba(255, 255, 255, 0.82);
-      margin-top: 1.3em;
-    }
+/* ----- Title / hero slide ----- */
+.reveal section.slide-title {
+  text-align: center;
+  background: var(--gradient-hero);          /* token-driven hero background */
+  padding: 0 6%;
+}
+.reveal section.slide-title h1 {
+  font-size: 2.05em;
+  margin: 0.12em 0 0.22em;
+  color: #FFFFFF;
+  max-width: 16em;
+  margin-left: auto;
+  margin-right: auto;
+}
+.reveal section.slide-title .subtitle {
+  font-family: var(--ff-body);
+  font-size: 0.86em;
+  color: rgba(255, 255, 255, 0.94);
+  max-width: 24em;
+  margin: 0 auto;
+}
+.reveal section.slide-title .audience {
+  font-family: var(--ff-mono);
+  font-size: 0.54em;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.82);
+  margin-top: 1.3em;
+}
 
-    /* ----- Eyebrow kicker ----- */
-    .reveal .eyebrow {
-      font-family: var(--ff-mono);
-      text-transform: uppercase;
-      letter-spacing: 0.3em;
-      font-size: 0.46em;
-      font-weight: 500;
-      color: var(--blitzy-accent-teal);
-      margin-bottom: 0.7em;
-    }
+/* ----- Eyebrow kicker ----- */
+.reveal .eyebrow {
+  font-family: var(--ff-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.46em;
+  font-weight: 500;
+  color: var(--blitzy-accent-teal);
+  margin-bottom: 0.7em;
+}
 
-    /* ----- Hero icon badge ----- */
-    .reveal .hero-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 128px;
-      height: 128px;
-      border-radius: 28px;
-      margin: 0 auto 0.45em;
-      background: rgba(255, 255, 255, 0.14);
-      border: 1px solid rgba(255, 255, 255, 0.28);
-      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-    }
-    .reveal .hero-icon svg { width: 66px; height: 66px; color: #FFFFFF; }
+/* ----- Hero icon badge ----- */
+.reveal .hero-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 128px;
+  height: 128px;
+  border-radius: 28px;
+  margin: 0 auto 0.45em;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+.reveal .hero-icon svg { width: 66px; height: 66px; color: #FFFFFF; }
 
-    /* ----- Section divider ----- */
-    .reveal section.slide-divider {
-      text-align: center;
-      background: linear-gradient(135deg, var(--blitzy-primary-dark) 0%, var(--blitzy-primary-navy) 100%);
-    }
-    .reveal section.slide-divider h2 { font-size: 2.3em; margin: 0; }
-    .reveal section.slide-divider .eyebrow { color: var(--blitzy-accent-teal); }
-    .reveal .divider-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 120px;
-      height: 120px;
-      border-radius: 30px;
-      margin: 0 auto 0.45em;
-      background: rgba(148, 250, 213, 0.1);
-      border: 1px solid var(--border-soft);
-    }
-    .reveal .divider-icon svg { width: 60px; height: 60px; color: var(--blitzy-accent-teal); }
+/* ----- Section divider ----- */
+.reveal section.slide-divider {
+  text-align: center;
+  background: linear-gradient(135deg, var(--blitzy-primary-dark) 0%, var(--blitzy-primary-navy) 100%);
+}
+.reveal section.slide-divider h2 { font-size: 2.3em; margin: 0; }
+.reveal section.slide-divider .eyebrow { color: var(--blitzy-accent-teal); }
+.reveal .divider-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 120px;
+  border-radius: 30px;
+  margin: 0 auto 0.45em;
+  background: rgba(148, 250, 213, 0.1);
+  border: 1px solid var(--border-soft);
+}
+.reveal .divider-icon svg { width: 60px; height: 60px; color: var(--blitzy-accent-teal); }
 
-    /* ----- Content slide scaffolding ----- */
-    .reveal section.content { text-align: left; }
-    .reveal section.content > * { width: 100%; }
-    .reveal .slide-head { margin-bottom: 0.55em; }
-    .reveal .slide-head .eyebrow { margin-bottom: 0.28em; }
-    .reveal .slide-head h2 { font-size: 1.42em; margin: 0; }
-    .reveal .content p.lead {
-      font-size: 0.72em;
-      color: var(--text-muted);
-      margin: 0 0 0.5em;
-    }
-    .reveal .content ul { list-style: none; margin: 0.2em 0 0; padding: 0; }
-    .reveal .content ul li {
-      position: relative;
-      padding-left: 1.5em;
-      margin: 0 0 0.55em;
-      font-size: 0.82em;
-    }
-    .reveal .content ul li::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0.46em;
-      width: 0.5em;
-      height: 0.5em;
-      transform: rotate(45deg);
-      background: var(--blitzy-accent-teal);
-      border-radius: 2px;
-    }
+/* ----- Content slide scaffolding ----- */
+.reveal section.content { text-align: left; }
+.reveal section.content > * { width: 100%; }
+.reveal .slide-head { margin-bottom: 0.55em; }
+.reveal .slide-head .eyebrow { margin-bottom: 0.28em; }
+.reveal .slide-head h2 { font-size: 1.42em; margin: 0; }
+.reveal .content p.lead {
+  font-size: 0.72em;
+  color: var(--text-muted);
+  margin: 0 0 0.5em;
+}
+.reveal .content ul { list-style: none; margin: 0.2em 0 0; padding: 0; }
+.reveal .content ul li {
+  position: relative;
+  padding-left: 1.5em;
+  margin: 0 0 0.55em;
+  font-size: 0.82em;
+}
+.reveal .content ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.46em;
+  width: 0.5em;
+  height: 0.5em;
+  transform: rotate(45deg);
+  background: var(--blitzy-accent-teal);
+  border-radius: 2px;
+}
 
-    /* ----- Inline mono chips & code chips ----- */
-    .reveal .code-chip {
-      font-family: var(--ff-mono);
-      background: rgba(0, 0, 0, 0.32);
-      border: 1px solid var(--border-soft);
-      border-radius: 8px;
-      padding: 1px 8px;
-      color: var(--blitzy-accent-teal);
-      font-size: 0.86em;
-      white-space: nowrap;
-    }
+/* ----- Inline mono chips & code chips ----- */
+.reveal .code-chip {
+  font-family: var(--ff-mono);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 1px 8px;
+  color: var(--blitzy-accent-teal);
+  font-size: 0.86em;
+  white-space: nowrap;
+}
 
-    /* ----- Block code chip (the 3-line hook) ----- */
-    .reveal pre.code-block {
-      display: block;
-      width: 100%;
-      font-family: var(--ff-mono);
-      background: rgba(0, 0, 0, 0.42);
-      border: 1px solid var(--border-soft);
-      border-left: 4px solid var(--blitzy-accent-teal);
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-top: 0.85em;
-      font-size: 0.44em;
-      line-height: 1.55;
-      color: #E9E5FF;
-      box-shadow: none;
-      white-space: pre;
-      overflow: visible;
-    }
-    .reveal pre.code-block .kw { color: #C7B9FF; }
-    .reveal pre.code-block .st { color: var(--blitzy-accent-teal); }
+/* ----- Block code chip (the 3-line hook) ----- */
+.reveal pre.code-block {
+  display: block;
+  width: 100%;
+  font-family: var(--ff-mono);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--blitzy-accent-teal);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 0.85em;
+  font-size: 0.44em;
+  line-height: 1.55;
+  color: #E9E5FF;
+  box-shadow: none;
+  white-space: pre;
+  overflow: visible;
+}
+.reveal pre.code-block .kw { color: #C7B9FF; }
+.reveal pre.code-block .st { color: var(--blitzy-accent-teal); }
 
-    /* ----- Callout ----- */
-    .reveal .callout {
-      display: flex;
-      align-items: center;
-      gap: 0.65em;
-      background: rgba(148, 250, 213, 0.08);
-      border: 1px solid var(--border-soft);
-      border-left: 4px solid var(--blitzy-accent-teal);
-      border-radius: 12px;
-      padding: 13px 18px;
-      margin-top: 0.85em;
-      font-size: 0.6em;
-      color: var(--text-light);
-    }
-    .reveal .callout svg { width: 26px; height: 26px; color: var(--blitzy-accent-teal); flex: none; }
-    .reveal .callout .mono { font-family: var(--ff-mono); color: var(--blitzy-accent-teal); }
+/* ----- Callout ----- */
+.reveal .callout {
+  display: flex;
+  align-items: center;
+  gap: 0.65em;
+  background: rgba(148, 250, 213, 0.08);
+  border: 1px solid var(--border-soft);
+  border-left: 4px solid var(--blitzy-accent-teal);
+  border-radius: 12px;
+  padding: 13px 18px;
+  margin-top: 0.85em;
+  font-size: 0.6em;
+  color: var(--text-light);
+}
+.reveal .callout svg { width: 26px; height: 26px; color: var(--blitzy-accent-teal); flex: none; }
+.reveal .callout .mono { font-family: var(--ff-mono); color: var(--blitzy-accent-teal); }
 
-    /* ----- Visual chip row (mono rate chips) ----- */
-    .reveal .visual-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 0.95em; }
-    .reveal .visual-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5em;
-      font-family: var(--ff-mono);
-      font-size: 0.56em;
-      background: var(--surface-2);
-      border: 1px solid var(--border-soft);
-      border-radius: 12px;
-      padding: 9px 15px;
-      color: var(--blitzy-accent-teal);
-    }
-    .reveal .visual-chip svg { width: 20px; height: 20px; color: var(--blitzy-accent-teal); }
+/* ----- Visual chip row (mono rate chips) ----- */
+.reveal .visual-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 0.95em; }
+.reveal .visual-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--ff-mono);
+  font-size: 0.56em;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 9px 15px;
+  color: var(--blitzy-accent-teal);
+}
+.reveal .visual-chip svg { width: 20px; height: 20px; color: var(--blitzy-accent-teal); }
 
-    /* ----- Icon badge row ----- */
-    .reveal .icon-row { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 1.05em; }
-    .reveal .icon-badge { display: inline-flex; flex-direction: column; align-items: center; gap: 9px; }
-    .reveal .icon-badge .badge {
-      width: 72px;
-      height: 72px;
-      border-radius: 18px;
-      background: var(--surface-2);
-      border: 1px solid var(--border-soft);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .reveal .icon-badge .badge svg { width: 34px; height: 34px; color: var(--blitzy-accent-teal); }
-    .reveal .icon-badge .cap {
-      font-size: 0.4em;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
+/* ----- Icon badge row ----- */
+.reveal .icon-row { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 1.05em; }
+.reveal .icon-badge { display: inline-flex; flex-direction: column; align-items: center; gap: 9px; }
+.reveal .icon-badge .badge {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reveal .icon-badge .badge svg { width: 34px; height: 34px; color: var(--blitzy-accent-teal); }
+.reveal .icon-badge .cap {
+  font-size: 0.4em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
 
-    /* ----- KPI system ----- */
-    .reveal .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(188px, 1fr));
-      gap: 22px;
-      margin-top: 0.55em;
-    }
-    .reveal .kpi-card {
-      background: var(--surface-1);
-      border: 1px solid var(--border-soft);
-      border-radius: 18px;
-      padding: 24px 22px;
-      display: flex;
-      flex-direction: column;
-      gap: 11px;
-      text-align: left;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
-    }
-    .reveal .kpi-icon {
-      width: 46px;
-      height: 46px;
-      border-radius: 12px;
-      background: rgba(148, 250, 213, 0.12);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .reveal .kpi-icon svg { width: 25px; height: 25px; color: var(--blitzy-accent-teal); }
-    .reveal .kpi-value {
-      font-family: var(--ff-display);
-      font-size: 1.7em;
-      font-weight: 700;
-      color: #FFFFFF;
-      line-height: 1;
-    }
-    .reveal .kpi-label {
-      font-size: 0.4em;
-      color: var(--text-muted);
-      line-height: 1.35;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
+/* ----- KPI system ----- */
+.reveal .kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(188px, 1fr));
+  gap: 22px;
+  margin-top: 0.55em;
+}
+.reveal .kpi-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  text-align: left;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+.reveal .kpi-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: rgba(148, 250, 213, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.reveal .kpi-icon svg { width: 25px; height: 25px; color: var(--blitzy-accent-teal); }
+.reveal .kpi-value {
+  font-family: var(--ff-display);
+  font-size: 1.7em;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1;
+}
+.reveal .kpi-label {
+  font-size: 0.4em;
+  color: var(--text-muted);
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
-    /* ----- Mermaid containers ----- */
-    .reveal section.mermaid-slide .slide-head { margin-bottom: 0.25em; }
-    .reveal pre.mermaid {
-      background: transparent;
-      border: none;
-      box-shadow: none;
-      text-align: center;
-      width: 100%;
-      margin: 0.3em auto 0;
-      font-size: 0.5em;
-      overflow: visible;
-    }
-    .reveal pre.mermaid svg { max-width: 100%; height: auto; margin: 0 auto; }
-    /* Neutralize reveal.js global typography inside Mermaid html-labels so the
-       rendered text matches Mermaid's measured node width (prevents glyph clip). */
-    .reveal pre.mermaid .nodeLabel,
-    .reveal pre.mermaid .edgeLabel,
-    .reveal pre.mermaid foreignObject p,
-    .reveal pre.mermaid foreignObject div,
-    .reveal pre.mermaid foreignObject span {
-      font-family: var(--ff-body);
-      letter-spacing: normal;
-      line-height: 1.25;
-      margin: 0;
-      padding: 0;
-    }
+/* ----- Mermaid containers ----- */
+.reveal section.mermaid-slide .slide-head { margin-bottom: 0.25em; }
+.reveal pre.mermaid {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-align: center;
+  width: 100%;
+  margin: 0.3em auto 0;
+  font-size: 0.5em;
+  overflow: visible;
+}
+.reveal pre.mermaid svg { max-width: 100%; height: auto; margin: 0 auto; }
+/* Neutralize reveal.js global typography inside Mermaid html-labels so the
+   rendered text matches Mermaid's measured node width (prevents glyph clip). */
+.reveal pre.mermaid .nodeLabel,
+.reveal pre.mermaid .edgeLabel,
+.reveal pre.mermaid foreignObject p,
+.reveal pre.mermaid foreignObject div,
+.reveal pre.mermaid foreignObject span {
+  font-family: var(--ff-body);
+  letter-spacing: normal;
+  line-height: 1.25;
+  margin: 0;
+  padding: 0;
+}
 
-    /* ----- Closing slide ----- */
-    .reveal section.slide-closing {
-      text-align: center;
-      background: linear-gradient(135deg, var(--blitzy-primary-dark) 0%, var(--blitzy-primary-navy) 100%);
-    }
-    .reveal section.slide-closing h2 { font-size: 1.48em; max-width: 18em; margin: 0.2em auto 0.3em; }
-    .reveal section.slide-closing .subtitle {
-      font-family: var(--ff-mono);
-      color: var(--blitzy-accent-teal);
-      font-size: 0.6em;
-      letter-spacing: 0.05em;
-    }
-    .reveal .accent-bar {
-      width: 96px;
-      height: 6px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, var(--blitzy-accent-teal), var(--blitzy-primary));
-      margin: 0 auto 1em;
-    }
-    .reveal ul.next-steps {
-      list-style: none;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 26px;
-      padding: 0;
-      margin: 1.2em 0;
-    }
-    .reveal ul.next-steps li {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5em;
-      font-size: 0.56em;
-      color: var(--text-light);
-    }
-    .reveal ul.next-steps li svg { width: 22px; height: 22px; color: var(--blitzy-accent-teal); }
-    .reveal .brand-lockup {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5em;
-      font-family: var(--ff-display);
-      font-weight: 700;
-      font-size: 0.92em;
-      letter-spacing: 0.02em;
-      color: #FFFFFF;
-      margin-top: 0.5em;
-    }
-    .reveal .brand-lockup .brand-mark {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: var(--gradient-hero);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .reveal .brand-lockup .brand-mark svg { width: 24px; height: 24px; color: #FFFFFF; }
+/* ----- Closing slide ----- */
+.reveal section.slide-closing {
+  text-align: center;
+  background: linear-gradient(135deg, var(--blitzy-primary-dark) 0%, var(--blitzy-primary-navy) 100%);
+}
+.reveal section.slide-closing h2 { font-size: 1.48em; max-width: 18em; margin: 0.2em auto 0.3em; }
+.reveal section.slide-closing .subtitle {
+  font-family: var(--ff-mono);
+  color: var(--blitzy-accent-teal);
+  font-size: 0.6em;
+  letter-spacing: 0.05em;
+}
+.reveal .accent-bar {
+  width: 96px;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--blitzy-accent-teal), var(--blitzy-primary));
+  margin: 0 auto 1em;
+}
+.reveal ul.next-steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 26px;
+  padding: 0;
+  margin: 1.2em 0;
+}
+.reveal ul.next-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.56em;
+  color: var(--text-light);
+}
+.reveal ul.next-steps li svg { width: 22px; height: 22px; color: var(--blitzy-accent-teal); }
+.reveal .brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--ff-display);
+  font-weight: 700;
+  font-size: 0.92em;
+  letter-spacing: 0.02em;
+  color: #FFFFFF;
+  margin-top: 0.5em;
+}
+.reveal .brand-lockup .brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--gradient-hero);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.reveal .brand-lockup .brand-mark svg { width: 24px; height: 24px; color: #FFFFFF; }
 
-    /* ----- Accessibility: focus visibility, reduced motion, print ----- */
-    /* Visible keyboard focus indicator using the brand accent. */
-    .reveal a:focus-visible,
-    .reveal button:focus-visible,
-    .reveal .controls button:focus-visible,
-    .reveal .navigate-left:focus-visible,
-    .reveal .navigate-right:focus-visible,
-    .reveal .navigate-up:focus-visible,
-    .reveal .navigate-down:focus-visible {
-      outline: 3px solid var(--blitzy-accent-teal);
-      outline-offset: 3px;
-      border-radius: 4px;
-    }
-    /* Honor users who prefer reduced motion. */
-    @media (prefers-reduced-motion: reduce) {
-      .reveal .slides section,
-      .reveal .progress span,
-      .reveal [data-lucide],
-      .reveal svg {
-        transition: none !important;
-        animation: none !important;
-      }
-    }
-    /* Speaker notes stay off the rendered slide (available in source / speaker
-       view), keeping content slides to an executive-summary density. */
-    .reveal aside.notes { display: none; }
-    /* Legible, ink-friendly print output. */
-    @media print {
-      html, body, .reveal-viewport { background: #FFFFFF !important; }
-      .reveal, .reveal .slides section { color: var(--blitzy-primary-navy); }
-      .reveal .controls, .reveal .progress, .reveal .slide-number {
-        display: none !important;
-      }
-    }
+/* ----- Accessibility: focus visibility, reduced motion, print ----- */
+/* Visible keyboard focus indicator using the brand accent. */
+.reveal a:focus-visible,
+.reveal button:focus-visible,
+.reveal .controls button:focus-visible,
+.reveal .navigate-left:focus-visible,
+.reveal .navigate-right:focus-visible,
+.reveal .navigate-up:focus-visible,
+.reveal .navigate-down:focus-visible {
+  outline: 3px solid var(--blitzy-accent-teal);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+/* Honor users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal .slides section,
+  .reveal .progress span,
+  .reveal [data-lucide],
+  .reveal svg {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+/* Speaker notes stay off the rendered slide (available in source / speaker
+   view), keeping content slides to an executive-summary density. */
+.reveal aside.notes { display: none; }
+/* Legible, ink-friendly print output. */
+@media print {
+  html, body, .reveal-viewport { background: #FFFFFF !important; }
+  .reveal, .reveal .slides section { color: var(--blitzy-primary-navy); }
+  .reveal .controls, .reveal .progress, .reveal .slide-number {
+    display: none !important;
+  }
+}
   </style>
 </head>
 <body>
@@ -783,9 +786,9 @@ sequenceDiagram
     Reveal.on('slidechanged', renderIcons);
   </script>
 
-  <!-- Mermaid 11.4.0 (ES module). startOnLoad MUST be false; render on reveal lifecycle. -->
+  <!-- Mermaid 11.15.0 (ES module). startOnLoad MUST be false; render on reveal lifecycle. -->
   <script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.esm.min.mjs';
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs';
 
     mermaid.initialize({
       startOnLoad: false,

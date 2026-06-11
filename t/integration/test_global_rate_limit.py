@@ -110,6 +110,28 @@ def _max_allowed(elapsed):
     return RATE_PER_SECOND * elapsed + 2 * RATE_PER_SECOND + 2
 
 
+# Stabilization slop (seconds) subtracted from the measured window before the
+# single-worker parity lower bound. The dispatch loop, the worker poll cadence and
+# a possibly-empty initial bucket mean the first second or two under-counts; a
+# generous slop keeps the floor robust on slow CI while still proving the limiter
+# sustains ~R.
+_PARITY_STABILIZATION_SLOP = 4.0
+
+
+def _min_expected(elapsed):
+    """Lower bound on single-worker executions over ``elapsed`` seconds.
+
+    The shared bucket refills at ``R`` tokens/second, so a healthy single worker
+    draining a saturated backlog executes ~``R * elapsed`` tasks. We subtract a
+    fixed stabilization slop and floor at zero. This is the *parity* assertion: it
+    proves enabling the global limiter preserves throughput near ``R`` (the same
+    ~``R`` the local per-worker ``TokenBucket`` yields), not merely that the count
+    stays under the upper bound. A limiter that severely under-throttles or barely
+    executes anything falls below this floor and fails the test.
+    """
+    return RATE_PER_SECOND * max(0.0, elapsed - _PARITY_STABILIZATION_SLOP)
+
+
 # ---------------------------------------------------------------------------
 # Worker process entry point (must be top-level so it is picklable for ``spawn``)
 # ---------------------------------------------------------------------------
@@ -231,6 +253,7 @@ def _run_rate_limited_window(app, num_workers, window=WINDOW, dispatched=DISPATC
 
     ctx = multiprocessing.get_context('spawn')
     with contextlib.ExitStack() as stack:
+        procs = []
         for _ in range(num_workers):
             proc = ctx.Process(
                 target=_worker_process,
@@ -238,6 +261,7 @@ def _run_rate_limited_window(app, num_workers, window=WINDOW, dispatched=DISPATC
                 daemon=True,
             )
             proc.start()
+            procs.append(proc)
             # LIFO teardown: terminate the process, then join it.
             stack.callback(proc.join, 15)
             stack.callback(proc.terminate)
@@ -247,6 +271,19 @@ def _run_rate_limited_window(app, num_workers, window=WINDOW, dispatched=DISPATC
         while (int(conn.get(READY_KEY) or 0) < num_workers
                and time.monotonic() < ready_deadline):
             time.sleep(0.2)
+
+        # Fail loudly if the readiness barrier timed out before every worker came
+        # online. Without this guard the measurement could proceed with fewer than
+        # ``num_workers`` consumers, so the N>=2 aggregate-enforcement proof would be
+        # vacuous (one active worker trivially stays under the global bound). The
+        # diagnostic reports each process's liveness and exit code so a worker that
+        # died during startup is immediately visible.
+        ready = int(conn.get(READY_KEY) or 0)
+        assert ready >= num_workers, (
+            f'only {ready}/{num_workers} workers signaled readiness within '
+            f'{WORKER_READY_TIMEOUT}s; worker (pid, alive, exitcode)='
+            f'{[(p.pid, p.is_alive(), p.exitcode) for p in procs]}'
+        )
         # Brief settle so the consumers are actively polling before we dispatch.
         time.sleep(0.5)
 
@@ -291,8 +328,19 @@ def test_global_rate_limit_single_worker_parity(global_rate_limit_app):
     count, elapsed = _run_rate_limited_window(app, num_workers=1)
 
     max_allowed = _max_allowed(elapsed)
+    min_expected = _min_expected(elapsed)
     assert count > 0, 'worker executed nothing - check broker/worker startup'
     assert count <= max_allowed, (
         f'single-worker rate limit exceeded: executed {count} in {elapsed:.2f}s '
         f'(allowed ~{max_allowed:.1f} at R={RATE_PER_SECOND}/s)'
+    )
+    # Parity lower bound: with the global limiter enabled a single worker must
+    # still sustain throughput near R (matching the local per-worker TokenBucket),
+    # not merely stay under the upper bound. This is the real parity proof — it
+    # catches a limiter that severely under-throttles or barely executes anything.
+    assert count >= min_expected, (
+        f'single-worker throughput too low for parity: executed {count} in '
+        f'{elapsed:.2f}s (expected >= {min_expected:.1f} ~ R after stabilization, '
+        f'R={RATE_PER_SECOND}/s); enabling the limiter must preserve ~R, like the '
+        f'local per-worker bucket'
     )

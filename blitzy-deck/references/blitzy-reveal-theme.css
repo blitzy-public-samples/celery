@@ -1,24 +1,11 @@
-/*
- * Blitzy reveal.js Slide Theme - Canonical Reference
- * --------------------------------------------------
- * This is the canonical Blitzy reveal.js presentation theme. It is the
- * styling reference twin of blitzy-deck/global-rate-limit-executive-summary.html,
- * which inlines an identical copy of these brand tokens and component classes.
- * Authored for reveal.js 5.1.0. Brand tokens follow AAP section 0.5.3.
- *
- * Pure CSS only: no markup tags, no inline style or script blocks, and no
- * JavaScript. No font import rules are used here; the deck loads the fonts
- * (Inter, Space Grotesk, Fira Code) via Google Fonts, while this reference only
- * declares the font-family stacks through tokens. No emoji or pictographic
- * glyphs appear anywhere in this file.
- *
- * Keep the eight :root brand tokens (values) and the twelve component/slide
- * class names byte-identical to the deck so the reference and the deck stay in
- * lockstep.
- */
-
+/* =====================================================================
+   Blitzy brand theme — canonical tokens & component classes (AAP §0.5.3).
+   This exact CSS body is shared byte-for-byte between this reference
+   stylesheet (blitzy-deck/references/blitzy-reveal-theme.css) and the
+   inlined style block of blitzy-deck/global-rate-limit-executive-summary.html.
+   ===================================================================== */
 :root {
-  /* Authoritative Blitzy brand tokens (AAP 0.5.3) - byte-identical to the deck. */
+  /* Authoritative Blitzy brand tokens */
   --blitzy-primary: #5B39F3;
   --blitzy-primary-dark: #2D1C77;
   --blitzy-primary-navy: #1A105F;
@@ -28,14 +15,14 @@
   --ff-display: 'Space Grotesk', sans-serif;
   --ff-mono: 'Fira Code', monospace;
 
-  /* Derived surfaces and text - built only from the brand palette. */
+  /* Derived surfaces / text — built only from the brand palette */
   --surface-1: rgba(255, 255, 255, 0.045);
   --surface-2: rgba(255, 255, 255, 0.07);
   --border-soft: rgba(148, 250, 213, 0.18);
   --text-light: #F4F2FF;
   --text-muted: #B7AFE6;
 
-  /* Map reveal.js core variables onto the brand palette. */
+  /* Map reveal.js core variables onto the brand */
   --r-background-color: var(--blitzy-primary-navy);
   --r-main-font: var(--ff-body);
   --r-main-font-size: 30px;
@@ -64,7 +51,7 @@ html, body { background: var(--blitzy-primary-navy); }
 .reveal .slides { text-align: left; }
 
 /* ----- Typography ----- */
-.reveal h1, .reveal h2, .reveal h3, .reveal h4, .reveal h5, .reveal h6 {
+.reveal h1, .reveal h2, .reveal h3, .reveal h4 {
   font-family: var(--ff-display);
   color: #FFFFFF;
   font-weight: 600;
@@ -75,17 +62,13 @@ html, body { background: var(--blitzy-primary-navy); }
 }
 .reveal h1 { font-size: 2.05em; }
 .reveal h2 { font-size: 1.45em; }
-.reveal h3 { font-size: 1.2em; }
 .reveal p, .reveal li { line-height: 1.42; }
 .reveal strong { color: #FFFFFF; font-weight: 600; }
 .reveal a { color: var(--blitzy-accent-teal); text-decoration: none; }
-.reveal a:hover { color: #BFFCE6; }
 .reveal code, .reveal pre { font-family: var(--ff-mono); }
-.reveal .mono, .mono { font-family: var(--ff-mono); }
 ::selection { background: rgba(148, 250, 213, 0.32); }
 
-/* ----- Lucide icon defaults: the deck injects SVG icons via Lucide; this only
-   sets inline-flex display and a sensible stroke for the rendered icons. ----- */
+/* ----- Lucide icon defaults (icons replace data-lucide placeholders with inline svg) ----- */
 .reveal i[data-lucide] { display: inline-flex; }
 .reveal svg.lucide { stroke: currentColor; stroke-width: 2; vertical-align: middle; }
 
@@ -99,14 +82,13 @@ html, body { background: var(--blitzy-primary-navy); }
 }
 
 /* =====================================================================
-   Slide-type and component classes (names mirror the canonical theme)
+   Slide-type & component classes (names mirror the canonical theme)
    ===================================================================== */
 
 /* ----- Title / hero slide ----- */
-.slide-title,
 .reveal section.slide-title {
   text-align: center;
-  background: var(--gradient-hero);
+  background: var(--gradient-hero);          /* token-driven hero background */
   padding: 0 6%;
 }
 .reveal section.slide-title h1 {
@@ -133,7 +115,6 @@ html, body { background: var(--blitzy-primary-navy); }
 }
 
 /* ----- Eyebrow kicker ----- */
-.eyebrow,
 .reveal .eyebrow {
   font-family: var(--ff-mono);
   text-transform: uppercase;
@@ -145,7 +126,6 @@ html, body { background: var(--blitzy-primary-navy); }
 }
 
 /* ----- Hero icon badge ----- */
-.hero-icon,
 .reveal .hero-icon {
   display: inline-flex;
   align-items: center;
@@ -161,7 +141,6 @@ html, body { background: var(--blitzy-primary-navy); }
 .reveal .hero-icon svg { width: 66px; height: 66px; color: #FFFFFF; }
 
 /* ----- Section divider ----- */
-.slide-divider,
 .reveal section.slide-divider {
   text-align: center;
   background: linear-gradient(135deg, var(--blitzy-primary-dark) 0%, var(--blitzy-primary-navy) 100%);
@@ -211,7 +190,7 @@ html, body { background: var(--blitzy-primary-navy); }
   border-radius: 2px;
 }
 
-/* ----- Inline mono chips and block code chips ----- */
+/* ----- Inline mono chips & code chips ----- */
 .reveal .code-chip {
   font-family: var(--ff-mono);
   background: rgba(0, 0, 0, 0.32);
@@ -222,6 +201,8 @@ html, body { background: var(--blitzy-primary-navy); }
   font-size: 0.86em;
   white-space: nowrap;
 }
+
+/* ----- Block code chip (the 3-line hook) ----- */
 .reveal pre.code-block {
   display: block;
   width: 100%;
@@ -297,14 +278,12 @@ html, body { background: var(--blitzy-primary-navy); }
 }
 
 /* ----- KPI system ----- */
-.kpi-grid,
 .reveal .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(188px, 1fr));
   gap: 22px;
   margin-top: 0.55em;
 }
-.kpi-card,
 .reveal .kpi-card {
   background: var(--surface-1);
   border: 1px solid var(--border-soft);
@@ -316,7 +295,6 @@ html, body { background: var(--blitzy-primary-navy); }
   text-align: left;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
-.kpi-icon,
 .reveal .kpi-icon {
   width: 46px;
   height: 46px;
@@ -325,10 +303,8 @@ html, body { background: var(--blitzy-primary-navy); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--blitzy-accent-teal);
 }
 .reveal .kpi-icon svg { width: 25px; height: 25px; color: var(--blitzy-accent-teal); }
-.kpi-value,
 .reveal .kpi-value {
   font-family: var(--ff-display);
   font-size: 1.7em;
@@ -336,9 +312,7 @@ html, body { background: var(--blitzy-primary-navy); }
   color: #FFFFFF;
   line-height: 1;
 }
-.kpi-label,
 .reveal .kpi-label {
-  font-family: var(--ff-body);
   font-size: 0.4em;
   color: var(--text-muted);
   line-height: 1.35;
@@ -346,13 +320,7 @@ html, body { background: var(--blitzy-primary-navy); }
   letter-spacing: 0.05em;
 }
 
-/* ----- Mermaid containers (the deck owns diagram rendering) ----- */
-.mermaid {
-  text-align: center;
-  background: transparent;
-  width: 100%;
-  margin: 0 auto;
-}
+/* ----- Mermaid containers ----- */
 .reveal section.mermaid-slide .slide-head { margin-bottom: 0.25em; }
 .reveal pre.mermaid {
   background: transparent;
@@ -380,7 +348,6 @@ html, body { background: var(--blitzy-primary-navy); }
 }
 
 /* ----- Closing slide ----- */
-.slide-closing,
 .reveal section.slide-closing {
   text-align: center;
   background: linear-gradient(135deg, var(--blitzy-primary-dark) 0%, var(--blitzy-primary-navy) 100%);
@@ -392,7 +359,6 @@ html, body { background: var(--blitzy-primary-navy); }
   font-size: 0.6em;
   letter-spacing: 0.05em;
 }
-.accent-bar,
 .reveal .accent-bar {
   width: 96px;
   height: 6px;
@@ -417,7 +383,6 @@ html, body { background: var(--blitzy-primary-navy); }
   color: var(--text-light);
 }
 .reveal ul.next-steps li svg { width: 22px; height: 22px; color: var(--blitzy-accent-teal); }
-.brand-lockup,
 .reveal .brand-lockup {
   display: inline-flex;
   align-items: center;
@@ -440,10 +405,7 @@ html, body { background: var(--blitzy-primary-navy); }
 }
 .reveal .brand-lockup .brand-mark svg { width: 24px; height: 24px; color: #FFFFFF; }
 
-/* =====================================================================
-   Accessibility: focus visibility, reduced motion, print
-   ===================================================================== */
-
+/* ----- Accessibility: focus visibility, reduced motion, print ----- */
 /* Visible keyboard focus indicator using the brand accent. */
 .reveal a:focus-visible,
 .reveal button:focus-visible,
@@ -456,7 +418,6 @@ html, body { background: var(--blitzy-primary-navy); }
   outline-offset: 3px;
   border-radius: 4px;
 }
-
 /* Honor users who prefer reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   .reveal .slides section,
@@ -467,11 +428,9 @@ html, body { background: var(--blitzy-primary-navy); }
     animation: none !important;
   }
 }
-
-/* Speaker notes stay off the rendered slide, keeping content slides to an
-   executive-summary density. */
+/* Speaker notes stay off the rendered slide (available in source / speaker
+   view), keeping content slides to an executive-summary density. */
 .reveal aside.notes { display: none; }
-
 /* Legible, ink-friendly print output. */
 @media print {
   html, body, .reveal-viewport { background: #FFFFFF !important; }
@@ -480,4 +439,3 @@ html, body { background: var(--blitzy-primary-navy); }
     display: none !important;
   }
 }
-
