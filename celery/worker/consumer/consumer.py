@@ -19,6 +19,7 @@ from kombu.exceptions import ContentDisallowed, DecodeError
 from kombu.utils.compat import _detect_environment
 from kombu.utils.encoding import safe_repr
 from kombu.utils.limits import TokenBucket
+from kombu.utils.objects import cached_property
 from vine import ppartial, promise
 
 from celery import bootsteps, signals
@@ -32,6 +33,7 @@ from celery.utils.objects import Bunch
 from celery.utils.text import truncate
 from celery.utils.time import humanize_seconds, rate
 from celery.worker import loops
+from celery.worker.global_ratelimit import GlobalRateLimiter, GlobalTokenBucket
 from celery.worker.state import (active_requests, maybe_shutdown, requests, reserved_requests, successful_requests,
                                  task_reserved)
 
@@ -293,8 +295,15 @@ class Consumer:
                 except Exception as exc:  # pylint: disable=broad-except
                     logger.exception('Pending callback raised: %r', exc)
 
+    @cached_property
+    def _global_rate_limiter(self):
+        return GlobalRateLimiter(self.app)
+
     def bucket_for_task(self, type):
         limit = rate(getattr(type, 'rate_limit', None))
+        if limit and self.app.conf.worker_enable_global_rate_limits:
+            # required for global (cross-worker) rate limiting
+            return self._global_rate_limiter.bucket(type.name, limit)
         return TokenBucket(limit, capacity=1) if limit else None
 
     def reset_rate_limits(self):
@@ -535,6 +544,9 @@ class Consumer:
         for bucket in self.task_buckets.values():
             if bucket:
                 bucket.clear_pending()
+        limiter = self.__dict__.get('_global_rate_limiter')
+        if limiter is not None:
+            limiter.close()
         for r in tuple(reserved_requests):
             if r not in active_requests:
                 requests.pop(r.id, None)
