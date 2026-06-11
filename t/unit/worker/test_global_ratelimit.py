@@ -6,6 +6,7 @@ parsing tests require ``redis-py`` (available via the ``celery[redis]``
 extra) and are skipped when it is absent, mirroring the module's own guarded
 import.
 """
+import logging
 from collections import deque
 from unittest.mock import Mock
 
@@ -100,6 +101,14 @@ class test_rate_units_and_namespacing:
         assert make_bucket(fill_rate=rate('2/h')).fill_rate == \
             pytest.approx(2 / 3600)
         assert make_bucket(fill_rate=rate(5)).fill_rate == 5.0
+
+    def test_float_rate_is_idempotent_through_bucket(self):
+        # A non-string float rate is idempotent through rate() (rate(2.5)
+        # == 2.5) and is preserved unchanged along the bucket's fill_rate
+        # path, even though the bucket re-applies rate() in __init__.
+        assert rate(2.5) == 2.5
+        assert make_bucket(fill_rate=rate(2.5)).fill_rate == 2.5
+        assert make_bucket(fill_rate=rate(0.5)).fill_rate == 0.5
 
     def test_bucket_key_format(self):
         manager = GlobalRateLimiter(make_app())
@@ -250,21 +259,29 @@ class test_fail_open_parity:
         assert bucket.expected_time(1) == 0.25
         bucket._local.expected_time.assert_called_once_with(1)
 
-    def test_redis_error_warns_with_task_and_key_and_counts(self):
-        manager = Mock()
+    def test_redis_error_warns_with_task_and_key_and_counts(self, caplog):
+        # Drive the Redis-error fail-open path through the REAL module logger
+        # and a REAL manager so the actual WARNING record is captured by
+        # ``caplog`` and the real ``fallback_count`` counter is asserted
+        # (not just a mock's call args).
+        manager = GlobalRateLimiter(make_app())
         script = Mock(side_effect=RedisError('down'))
-        logger = Mock()
         bucket = make_bucket(
             manager=manager, key='celery:globalratelimit:proj.t:10.0',
             task_name='proj.t', script=script, redis_errors=(RedisError,),
-            logger=logger,
+            logger=None,
         )
-        assert isinstance(bucket.can_consume(1), bool)
-        manager._incr_fallback.assert_called_once()
-        logger.warning.assert_called_once()
-        args = logger.warning.call_args.args
-        assert 'proj.t' in args
-        assert 'celery:globalratelimit:proj.t:10.0' in args
+        with caplog.at_level(logging.WARNING,
+                             logger='celery.worker.global_ratelimit'):
+            assert isinstance(bucket.can_consume(1), bool)
+        records = [r for r in caplog.records
+                   if r.name == 'celery.worker.global_ratelimit'
+                   and r.levelno == logging.WARNING]
+        assert len(records) == 1
+        message = records[0].getMessage()
+        assert 'proj.t' in message
+        assert 'celery:globalratelimit:proj.t:10.0' in message
+        assert manager.fallback_count == 1
 
     def test_no_exception_escapes_can_consume(self):
         # A non-Redis error must still be caught (fail-open is absolute).
