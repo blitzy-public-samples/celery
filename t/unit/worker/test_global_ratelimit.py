@@ -138,7 +138,12 @@ class test_url_resolution:
                        broker_url='redis://b/2')
         assert GlobalRateLimiter(app)._resolve_url() == 'redis://b/2'
 
+    @requires_redis
     def test_is_redis_url(self):
+        # The positive scheme assertions require redis-py to be installed:
+        # when it is absent the module deliberately treats every URL as a
+        # non-Redis endpoint, so the limiter fails open to local buckets
+        # (that redis-absent behavior is asserted in the test below).
         manager = GlobalRateLimiter(make_app())
         assert manager._is_redis_url('redis://h/0')
         assert manager._is_redis_url('rediss://h/0')
@@ -373,3 +378,42 @@ class test_GlobalRateLimiter_counters:
         assert manager.allow_count == 1
         assert manager.deny_count == 1
         assert manager.fallback_count == 0
+
+
+class test_atomic_acquisition:
+    """Group 3: token acquisition is a SINGLE atomic Redis call carrying the
+    namespaced bucket key and the ``[fill_rate, capacity, tokens, ttl]``
+    arguments -- proving the limiter performs exactly one server-side
+    operation per acquisition attempt (no client-side read-modify-write race
+    across workers)."""
+
+    def test_single_atomic_call_uses_namespaced_key_and_args(self):
+        manager = GlobalRateLimiter(make_app())
+        # The registered Lua script returns ``[allowed, retry_after_str]``;
+        # allow the first token then deny the immediate second.
+        script = Mock(side_effect=[[1, '0'], [0, '0.5']])
+        key = manager._bucket_key('proj.add', 10.0)
+        bucket = make_bucket(
+            fill_rate=10.0, capacity=1, manager=manager, key=key,
+            task_name='proj.add', script=script, redis_errors=(),
+        )
+
+        assert bucket.can_consume(1) is True   # first token granted
+        assert bucket.can_consume(1) is False  # bucket empty -> denied
+
+        # Exactly one server-side invocation per acquisition attempt.
+        assert script.call_count == 2
+        first = script.call_args_list[0]
+        assert first.kwargs['keys'] == [key]
+        args = first.kwargs['args']
+        # Positional contract: [fill_rate, capacity, tokens, ttl]. Assert the
+        # first three exactly and the ttl only as a positive bound so the test
+        # stays robust to any valid change in the ttl formula.
+        assert args[0] == 10.0 and args[1] == 1.0 and args[2] == 1
+        assert len(args) == 4 and args[3] > 0
+
+        # The retry_after string from the deny is float()-converted and cached
+        # so expected_time() reports the Redis-reported wait.
+        assert bucket.expected_time(1) == 0.5
+        assert isinstance(bucket.expected_time(1), float)
+        assert manager.allow_count == 1 and manager.deny_count == 1
