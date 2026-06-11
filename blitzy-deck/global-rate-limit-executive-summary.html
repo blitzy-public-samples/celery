@@ -834,12 +834,12 @@ sequenceDiagram
         // last glyph inside the fixed-size <foreignObject>. Add a small symmetric
         // width buffer (and recenter via x) so every label has breathing room.
         nodes.forEach((n) => {
-          n.querySelectorAll('foreignObject').forEach((fo) => {
-            const w = parseFloat(fo.getAttribute('width')) || 0;
-            const x = parseFloat(fo.getAttribute('x')) || 0;
+          n.querySelectorAll('foreignObject').forEach((foEl) => {
+            const w = parseFloat(foEl.getAttribute('width')) || 0;
+            const x = parseFloat(foEl.getAttribute('x')) || 0;
             if (w > 0) {
-              fo.setAttribute('width', (w + 12).toString());
-              fo.setAttribute('x', (x - 6).toString());
+              foEl.setAttribute('width', (w + 12).toString());
+              foEl.setAttribute('x', (x - 6).toString());
             }
           });
         });
